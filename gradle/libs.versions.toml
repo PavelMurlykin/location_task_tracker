@@ -1,7 +1,7 @@
 [versions]
-agp = "8.13.2"
-kotlin = "2.1.20"
-ksp = "2.1.20-1.0.32"
+agp = "9.1.1"
+kotlin = "2.2.10"
+ksp = "2.3.6"
 coreKtx = "1.16.0"
 activityCompose = "1.10.1"
 lifecycle = "2.9.0"
@@ -9,7 +9,7 @@ composeBom = "2025.05.00"
 navigationCompose = "2.9.0"
 room = "2.7.1"
 datastore = "1.1.7"
-hilt = "2.56.2"
+hilt = "2.59.2"
 hiltNavigationCompose = "1.2.0"
 playServicesLocation = "21.3.0"
 mapsCompose = "6.12.0"
@@ -51,7 +51,6 @@ androidx-espresso-core = { module = "androidx.test.espresso:espresso-core", vers
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }

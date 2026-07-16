@@ -14,7 +14,7 @@ private val Context.dataStore by preferencesDataStore(name = "user_preferences")
 
 @Singleton
 class UserPreferencesRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     val notificationCooldownHours: Flow<Int> = context.dataStore.data.map { preferences ->
         preferences[NOTIFICATION_COOLDOWN_HOURS] ?: DEFAULT_COOLDOWN_HOURS

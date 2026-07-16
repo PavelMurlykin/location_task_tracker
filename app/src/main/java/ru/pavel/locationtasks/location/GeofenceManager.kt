@@ -15,7 +15,7 @@ import javax.inject.Singleton
 
 @Singleton
 class GeofenceManager @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val geofencingClient: GeofencingClient,
 ) {
     private val pendingIntent: PendingIntent by lazy {
