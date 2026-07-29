@@ -1,7 +1,10 @@
 package ru.pavel.locationtasks.ui
 
 import android.Manifest
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -33,10 +36,12 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -53,6 +58,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -87,26 +93,30 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.launch
 import ru.pavel.locationtasks.R
 import ru.pavel.locationtasks.data.GeofenceStatus
+import ru.pavel.locationtasks.data.PlaceEntity
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.data.TaskPriority
 import ru.pavel.locationtasks.location.LocationPermissionState
 import java.text.DateFormat
 import java.time.Instant
 import java.time.ZoneId
+import java.util.Locale
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskListScreen(
-    onCreateTask: () -> Unit,
+    onCreateTask: (String) -> Unit,
     onOpenTask: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: TaskListViewModel = hiltViewModel(),
 ) {
     val tasks by viewModel.tasks.collectAsState()
+    val savedPlaces by viewModel.savedPlaces.collectAsState()
     var criteria by remember { mutableStateOf(TaskListCriteria()) }
     var currentLocation by remember { mutableStateOf<GeoPoint?>(null) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
+    var showQuickCreate by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var permissions by remember { mutableStateOf(LocationPermissionState.from(context)) }
@@ -239,7 +249,7 @@ fun TaskListScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = onCreateTask) {
+            FloatingActionButton(onClick = { showQuickCreate = true }) {
                 Icon(
                     Icons.Default.Add,
                     contentDescription = stringResource(R.string.new_task_content_description),
@@ -301,6 +311,159 @@ fun TaskListScreen(
             }
         }
     }
+
+    if (showQuickCreate) {
+        QuickCreateDialog(
+            savedPlaces = savedPlaces,
+            onDismiss = { showQuickCreate = false },
+            onCreate = { title, place ->
+                viewModel.quickCreate(title, place)
+                showQuickCreate = false
+            },
+            onOpenEditor = { title ->
+                showQuickCreate = false
+                onCreateTask(title)
+            },
+        )
+    }
+}
+
+@Composable
+private fun QuickCreateDialog(
+    savedPlaces: List<PlaceEntity>,
+    onDismiss: () -> Unit,
+    onCreate: (String, PlaceEntity?) -> Unit,
+    onOpenEditor: (String) -> Unit,
+) {
+    var title by remember { mutableStateOf("") }
+    var selectedPlaceId by remember(savedPlaces) {
+        mutableStateOf(savedPlaces.firstOrNull()?.id)
+    }
+    var voiceError by remember { mutableStateOf(false) }
+    val voiceLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spokenText = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                .orEmpty()
+            if (spokenText.isNotBlank()) {
+                val parsed = parseVoiceTask(spokenText, savedPlaces)
+                title = parsed.title
+                parsed.placeId?.let { selectedPlaceId = it }
+                voiceError = false
+            }
+        }
+    }
+    val voiceIntent = remember {
+        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+            )
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.quick_create_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = {
+                        title = it
+                        voiceError = false
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.task_title_label)) },
+                    trailingIcon = {
+                        IconButton(
+                            onClick = {
+                                voiceError = !runCatching {
+                                    voiceLauncher.launch(voiceIntent)
+                                }.isSuccess
+                            },
+                        ) {
+                            Icon(
+                                Icons.Default.Mic,
+                                contentDescription = stringResource(R.string.voice_input),
+                            )
+                        }
+                    },
+                    singleLine = true,
+                )
+                if (savedPlaces.isEmpty()) {
+                    Text(
+                        stringResource(R.string.quick_create_no_saved_places),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Text(
+                        stringResource(R.string.quick_create_place),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        savedPlaces.forEach { place ->
+                            FilterChip(
+                                selected = selectedPlaceId == place.id,
+                                onClick = {
+                                    selectedPlaceId =
+                                        if (selectedPlaceId == place.id) null else place.id
+                                },
+                                label = { Text(place.displayName) },
+                            )
+                        }
+                    }
+                }
+                Text(
+                    stringResource(R.string.voice_input_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (voiceError) {
+                    Text(
+                        stringResource(R.string.voice_input_unavailable),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                TextButton(
+                    onClick = { onOpenEditor(title) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.quick_create_more_options))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onCreate(
+                        title,
+                        savedPlaces.firstOrNull { it.id == selectedPlaceId },
+                    )
+                },
+                enabled = title.isNotBlank(),
+            ) {
+                Text(stringResource(R.string.common_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+    )
 }
 
 @Composable

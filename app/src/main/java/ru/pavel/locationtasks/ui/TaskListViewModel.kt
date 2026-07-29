@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ru.pavel.locationtasks.R
+import ru.pavel.locationtasks.data.GeofenceStatus
+import ru.pavel.locationtasks.data.PlaceEntity
+import ru.pavel.locationtasks.data.PlaceRepository
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.data.TaskRepository
 import javax.inject.Inject
@@ -18,6 +21,7 @@ import javax.inject.Inject
 @HiltViewModel
 class TaskListViewModel @Inject constructor(
     private val repository: TaskRepository,
+    private val placeRepository: PlaceRepository,
 ) : ViewModel() {
     private val undoOperations = mutableMapOf<Long, UndoOperation>()
     private var nextUndoToken = 1L
@@ -29,6 +33,48 @@ class TaskListViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList(),
     )
+    val savedPlaces: StateFlow<List<PlaceEntity>> = placeRepository.savedPlaces.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList(),
+    )
+
+    fun quickCreate(title: String, place: PlaceEntity?) {
+        val normalizedTitle = title.trim()
+        if (normalizedTitle.isEmpty()) return
+        viewModelScope.launch {
+            repository.save(
+                TaskEntity(
+                    title = normalizedTitle,
+                    latitude = place?.latitude,
+                    longitude = place?.longitude,
+                    address = place?.address,
+                    geofenceRadiusMeters =
+                        place?.radiusMeters ?: TaskEntity.DEFAULT_RADIUS_METERS,
+                    geofenceEnabled = place != null,
+                    geofenceStatus = if (place != null) {
+                        GeofenceStatus.PENDING.name
+                    } else {
+                        GeofenceStatus.DISABLED.name
+                    },
+                ),
+            )
+            if (place != null) {
+                placeRepository.recordUsed(
+                    address = place.address,
+                    latitude = place.latitude,
+                    longitude = place.longitude,
+                    radiusMeters = place.radiusMeters,
+                )
+            }
+            _events.send(
+                TaskListEvent(
+                    messageRes = R.string.quick_task_created,
+                    messageArgs = listOf(normalizedTitle),
+                ),
+            )
+        }
+    }
 
     fun setCompleted(task: TaskEntity, completed: Boolean) {
         if (task.isCompleted == completed) return
@@ -128,4 +174,58 @@ internal fun calculateSnoozedDueAt(
         .atStartOfDay(zoneId)
         .toInstant()
         .toEpochMilli()
+}
+
+data class ParsedVoiceTask(
+    val title: String,
+    val placeId: Long?,
+)
+
+internal fun parseVoiceTask(
+    spokenText: String,
+    savedPlaces: List<PlaceEntity>,
+): ParsedVoiceTask {
+    val text = spokenText.trim()
+    val lowercaseText = text.lowercase()
+    savedPlaces
+        .filter { !it.name.isNullOrBlank() }
+        .sortedByDescending { it.name.orEmpty().length }
+        .forEach { place ->
+            val name = place.name.orEmpty().trim().lowercase()
+            val markers = voicePlaceNameVariants(name).flatMap { variant ->
+                listOf(
+                    " рядом с $variant",
+                    " возле $variant",
+                    " около $variant",
+                    " у $variant",
+                    " near $variant",
+                    " at $variant",
+                )
+            }
+            val marker = markers.firstOrNull(lowercaseText::endsWith)
+            if (marker != null) {
+                val title = text.dropLast(marker.length).trim().trimEnd(',', '.', ';', ':')
+                if (title.isNotEmpty()) return ParsedVoiceTask(title, place.id)
+            }
+        }
+    return ParsedVoiceTask(text, null)
+}
+
+private fun voicePlaceNameVariants(name: String): Set<String> = buildSet {
+    add(name)
+    add(
+        when (name) {
+            "дом" -> "дома"
+            "работа" -> "работы"
+            "магазин" -> "магазина"
+            "родители" -> "родителей"
+            else -> when {
+                name.endsWith("а") -> name.dropLast(1) + "ы"
+                name.endsWith("я") -> name.dropLast(1) + "и"
+                name.endsWith("ь") -> name.dropLast(1) + "я"
+                name.lastOrNull()?.isLetter() == true -> name + "а"
+                else -> name
+            }
+        },
+    )
 }

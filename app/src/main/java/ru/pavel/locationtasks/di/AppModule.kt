@@ -12,6 +12,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import ru.pavel.locationtasks.data.AppDatabase
 import ru.pavel.locationtasks.data.GeofenceLogDao
+import ru.pavel.locationtasks.data.PlaceDao
 import ru.pavel.locationtasks.data.TaskDao
 import javax.inject.Singleton
 
@@ -25,6 +26,7 @@ object AppModule {
             .addMigrations(AppDatabase.MIGRATION_1_2)
             .addMigrations(AppDatabase.MIGRATION_2_3)
             .addMigrations(AppDatabase.MIGRATION_3_4)
+            .addMigrations(AppDatabase.MIGRATION_4_5)
             .build()
 
     @Provides
@@ -32,6 +34,9 @@ object AppModule {
 
     @Provides
     fun provideGeofenceLogDao(database: AppDatabase): GeofenceLogDao = database.geofenceLogDao()
+
+    @Provides
+    fun providePlaceDao(database: AppDatabase): PlaceDao = database.placeDao()
 
     @Provides
     @Singleton

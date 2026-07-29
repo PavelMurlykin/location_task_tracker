@@ -12,14 +12,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GpsFixed
+import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,8 +39,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -55,6 +65,7 @@ import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import ru.pavel.locationtasks.BuildConfig
 import ru.pavel.locationtasks.R
+import ru.pavel.locationtasks.data.PlaceEntity
 import ru.pavel.locationtasks.location.ResolvedLocation
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,8 +75,11 @@ fun LocationPickerDialog(
     initialLongitude: Double?,
     initialAddress: String,
     initialRadius: Float,
-    onSearch: (String, (ResolvedLocation?) -> Unit) -> Unit,
+    savedPlaces: List<PlaceEntity>,
+    recentPlaces: List<PlaceEntity>,
+    onSearch: (String, (List<ResolvedLocation>) -> Unit) -> Unit,
     onReverse: (Double, Double, (String?) -> Unit) -> Unit,
+    onSavePlace: (String, Double, Double, String, Float) -> Unit,
     onDismiss: () -> Unit,
     onConfirm: (Double, Double, String, Float) -> Unit,
 ) {
@@ -78,7 +92,10 @@ fun LocationPickerDialog(
     var radius by remember { mutableFloatStateOf(initialRadius) }
     var searchQuery by remember { mutableStateOf("") }
     var isSearching by remember { mutableStateOf(false) }
+    var searchResults by remember { mutableStateOf<List<ResolvedLocation>>(emptyList()) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var showSavePlaceDialog by remember { mutableStateOf(false) }
+    var placeName by remember { mutableStateOf("") }
     var hasFinePermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -107,6 +124,7 @@ fun LocationPickerDialog(
         latitudeText = result.latitude.toString()
         longitudeText = result.longitude.toString()
         address = result.address
+        searchResults = emptyList()
         errorMessage = null
     }
 
@@ -137,6 +155,35 @@ fun LocationPickerDialog(
                         .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
+                    PlaceSuggestionRow(
+                        title = stringResource(R.string.saved_places_title),
+                        places = savedPlaces,
+                        onSelected = { place ->
+                            applyResolvedLocation(
+                                ResolvedLocation(
+                                    latitude = place.latitude,
+                                    longitude = place.longitude,
+                                    address = place.address,
+                                ),
+                            )
+                            radius = place.radiusMeters
+                        },
+                    )
+                    PlaceSuggestionRow(
+                        title = stringResource(R.string.recent_places_title),
+                        places = recentPlaces,
+                        onSelected = { place ->
+                            applyResolvedLocation(
+                                ResolvedLocation(
+                                    latitude = place.latitude,
+                                    longitude = place.longitude,
+                                    address = place.address,
+                                ),
+                            )
+                            radius = place.radiusMeters
+                        },
+                    )
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -152,12 +199,13 @@ fun LocationPickerDialog(
                         IconButton(
                             onClick = {
                                 isSearching = true
-                                onSearch(searchQuery) { result ->
+                                onSearch(searchQuery) { results ->
                                     isSearching = false
-                                    if (result == null) {
+                                    searchResults = results
+                                    if (results.isEmpty()) {
                                         errorMessage = context.getString(R.string.address_not_found)
                                     } else {
-                                        applyResolvedLocation(result)
+                                        errorMessage = null
                                     }
                                 }
                             },
@@ -170,6 +218,30 @@ fun LocationPickerDialog(
                                     Icons.Default.Search,
                                     contentDescription = stringResource(R.string.common_search),
                                 )
+                            }
+                        }
+                    }
+
+                    if (searchResults.isNotEmpty()) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            items(
+                                items = searchResults,
+                                key = { "${it.latitude}:${it.longitude}:${it.address}" },
+                            ) { result ->
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { applyResolvedLocation(result) },
+                                ) {
+                                    Text(
+                                        result.address,
+                                        modifier = Modifier.padding(12.dp),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
                             }
                         }
                     }
@@ -291,6 +363,17 @@ fun LocationPickerDialog(
                         label = { Text(stringResource(R.string.place_name_or_address)) },
                         singleLine = true,
                     )
+                    OutlinedButton(
+                        onClick = {
+                            placeName = ""
+                            showSavePlaceDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Default.BookmarkAdd, contentDescription = null)
+                        Spacer(Modifier.size(8.dp))
+                        Text(stringResource(R.string.save_place_template))
+                    }
                     Text(stringResource(R.string.radius_value, radius.toInt()))
                     Slider(
                         value = radius,
@@ -319,6 +402,98 @@ fun LocationPickerDialog(
                     }
                     Spacer(Modifier.height(8.dp))
                 }
+            }
+        }
+    }
+
+    if (showSavePlaceDialog) {
+        AlertDialog(
+            onDismissRequest = { showSavePlaceDialog = false },
+            title = { Text(stringResource(R.string.save_place_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = placeName,
+                        onValueChange = { placeName = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.place_template_name)) },
+                        singleLine = true,
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        listOf(
+                            R.string.place_home,
+                            R.string.place_work,
+                            R.string.place_shop,
+                            R.string.place_parents,
+                        ).forEach { label ->
+                            val suggestion = stringResource(label)
+                            SuggestionChip(
+                                onClick = { placeName = suggestion },
+                                label = { Text(suggestion) },
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val validLatitude = latitudeText.replace(',', '.').toDoubleOrNull()
+                        val validLongitude = longitudeText.replace(',', '.').toDoubleOrNull()
+                        if (placeName.isNotBlank() &&
+                            validLatitude != null &&
+                            validLongitude != null
+                        ) {
+                            onSavePlace(
+                                placeName,
+                                validLatitude,
+                                validLongitude,
+                                address,
+                                radius,
+                            )
+                            errorMessage = context.getString(R.string.place_saved)
+                            showSavePlaceDialog = false
+                        }
+                    },
+                    enabled = placeName.isNotBlank(),
+                ) {
+                    Text(stringResource(R.string.common_save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSavePlaceDialog = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun PlaceSuggestionRow(
+    title: String,
+    places: List<PlaceEntity>,
+    onSelected: (PlaceEntity) -> Unit,
+) {
+    if (places.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(title, style = MaterialTheme.typography.labelLarge)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            places.forEach { place ->
+                SuggestionChip(
+                    onClick = { onSelected(place) },
+                    label = { Text(place.displayName, maxLines = 1) },
+                )
             }
         }
     }

@@ -21,18 +21,20 @@ class LocationResolver @Inject constructor(
 ) {
     private val geocoder = Geocoder(context, Locale.getDefault())
 
-    suspend fun search(query: String): ResolvedLocation? = withContext(Dispatchers.IO) {
-        if (query.isBlank() || !Geocoder.isPresent()) return@withContext null
+    suspend fun search(query: String): List<ResolvedLocation> = withContext(Dispatchers.IO) {
+        if (query.isBlank() || !Geocoder.isPresent()) return@withContext emptyList()
         @Suppress("DEPRECATION")
-        runCatching { geocoder.getFromLocationName(query, 1)?.firstOrNull() }
+        runCatching { geocoder.getFromLocationName(query, MAX_SEARCH_RESULTS).orEmpty() }
             .getOrNull()
-            ?.let { address ->
+            .orEmpty()
+            .map { address ->
                 ResolvedLocation(
                     latitude = address.latitude,
                     longitude = address.longitude,
                     address = address.getAddressLine(0) ?: query,
                 )
             }
+            .distinctBy { Triple(it.latitude, it.longitude, it.address) }
     }
 
     suspend fun reverse(latitude: Double, longitude: Double): String? =
@@ -43,4 +45,8 @@ class LocationResolver @Inject constructor(
                 .getOrNull()
                 ?.getAddressLine(0)
         }
+
+    companion object {
+        private const val MAX_SEARCH_RESULTS = 5
+    }
 }

@@ -135,7 +135,7 @@
 
     <string name="privacy_title">Privacy</string>
     <string name="privacy_data_heading">Data used</string>
-    <string name="privacy_data_text">Tasks, selected coordinates, and settings are stored locally on your device. This version has no accounts or proprietary server.</string>
+    <string name="privacy_data_text">Tasks, saved places, selected coordinates, and settings are stored locally on your device. When voice input is used, recognition is handled by the system speech service selected on the device; its provider controls audio processing. The app has no proprietary server.</string>
     <string name="privacy_location_heading">Location</string>
     <string name="privacy_location_text">With your permission, the app uses precise location, including in the background when the app is closed or not in use. Android needs this to detect entry into a task location and show a reminder. Location history is not recorded.</string>
     <string name="privacy_control_heading">Data control</string>
@@ -200,4 +200,23 @@
     <string name="quiet_hours_to">Until %1$s</string>
     <string name="log_reminder_deferred">Reminder deferred by schedule</string>
     <string name="log_next_visit">Reminder deferred until the next visit</string>
+
+    <string name="saved_places_title">Saved places</string>
+    <string name="recent_places_title">Recent addresses</string>
+    <string name="save_place_template">Save as place</string>
+    <string name="save_place_title">Saved place</string>
+    <string name="place_template_name">Place name</string>
+    <string name="place_home">Home</string>
+    <string name="place_work">Work</string>
+    <string name="place_shop">Shop</string>
+    <string name="place_parents">Parents</string>
+    <string name="place_saved">Place saved</string>
+    <string name="quick_create_title">Quick task</string>
+    <string name="quick_create_place">Place</string>
+    <string name="quick_create_no_saved_places">You can add a saved place in the full editor. The task will be created without a geofence.</string>
+    <string name="quick_create_more_options">More options</string>
+    <string name="quick_task_created">“%1$s” created</string>
+    <string name="voice_input">Voice input</string>
+    <string name="voice_input_hint">Try saying: “Buy milk near home”</string>
+    <string name="voice_input_unavailable">Voice input is unavailable on this device</string>
 </resources>

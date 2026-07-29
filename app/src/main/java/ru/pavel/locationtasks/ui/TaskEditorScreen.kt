@@ -92,6 +92,8 @@ fun TaskEditorScreen(
     viewModel: TaskEditorViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val savedPlaces by viewModel.savedPlaces.collectAsStateWithLifecycle()
+    val recentPlaces by viewModel.recentPlaces.collectAsStateWithLifecycle()
     var showDatePicker by remember { mutableStateOf(false) }
     var showDueTimePicker by remember { mutableStateOf(false) }
     var showWindowStartPicker by remember { mutableStateOf(false) }
@@ -554,8 +556,11 @@ fun TaskEditorScreen(
             initialLongitude = state.longitude,
             initialAddress = state.address,
             initialRadius = state.radiusMeters,
+            savedPlaces = savedPlaces,
+            recentPlaces = recentPlaces,
             onSearch = viewModel::searchLocation,
             onReverse = viewModel::reverseLocation,
+            onSavePlace = viewModel::savePlace,
             onDismiss = { showLocationPicker = false },
             onConfirm = { latitude, longitude, address, radius ->
                 viewModel.setRadius(radius)

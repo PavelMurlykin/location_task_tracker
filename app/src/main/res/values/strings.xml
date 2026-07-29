@@ -135,7 +135,7 @@
 
     <string name="privacy_title">Конфиденциальность</string>
     <string name="privacy_data_heading">Какие данные используются</string>
-    <string name="privacy_data_text">Задачи, выбранные координаты и настройки хранятся локально на вашем устройстве. В текущей версии нет учётных записей и собственного сервера.</string>
+    <string name="privacy_data_text">Задачи, сохранённые места, выбранные координаты и настройки хранятся локально на вашем устройстве. При использовании голосового ввода распознавание выполняет выбранная на устройстве системная служба, правила обработки аудио зависят от её поставщика. У приложения нет собственного сервера.</string>
     <string name="privacy_location_heading">Местоположение</string>
     <string name="privacy_location_text">С вашего разрешения приложение использует точное местоположение, в том числе в фоне, когда приложение закрыто или не используется. Это необходимо, чтобы Android определил вход в место задачи и показал напоминание. История перемещений не записывается.</string>
     <string name="privacy_control_heading">Управление данными</string>
@@ -200,4 +200,23 @@
     <string name="quiet_hours_to">До %1$s</string>
     <string name="log_reminder_deferred">Напоминание перенесено по расписанию</string>
     <string name="log_next_visit">Напоминание отложено до следующего визита</string>
+
+    <string name="saved_places_title">Сохранённые места</string>
+    <string name="recent_places_title">Недавние адреса</string>
+    <string name="save_place_template">Сохранить как место</string>
+    <string name="save_place_title">Сохранённое место</string>
+    <string name="place_template_name">Название места</string>
+    <string name="place_home">Дом</string>
+    <string name="place_work">Работа</string>
+    <string name="place_shop">Магазин</string>
+    <string name="place_parents">Родители</string>
+    <string name="place_saved">Место сохранено</string>
+    <string name="quick_create_title">Быстрая задача</string>
+    <string name="quick_create_place">Место</string>
+    <string name="quick_create_no_saved_places">Сохранённое место можно добавить в полном редакторе. Задача будет создана без геозоны.</string>
+    <string name="quick_create_more_options">Больше настроек</string>
+    <string name="quick_task_created">Задача «%1$s» создана</string>
+    <string name="voice_input">Голосовой ввод</string>
+    <string name="voice_input_hint">Можно сказать: «Купить молоко возле дома»</string>
+    <string name="voice_input_unavailable">Голосовой ввод недоступен на этом устройстве</string>
 </resources>

@@ -7,10 +7,14 @@ import androidx.annotation.StringRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import ru.pavel.locationtasks.data.PlaceEntity
+import ru.pavel.locationtasks.data.PlaceRepository
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.data.TaskRepository
 import ru.pavel.locationtasks.data.GeofenceStatus
@@ -61,12 +65,24 @@ sealed interface EditorEvent {
 class TaskEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: TaskRepository,
+    private val placeRepository: PlaceRepository,
     private val locationResolver: LocationResolver,
 ) : ViewModel() {
     private val taskId = savedStateHandle.get<Long>("taskId") ?: 0L
+    private val initialTitle = savedStateHandle.get<String>("initialTitle").orEmpty()
     private var originalTask: TaskEntity? = null
     private val _state = MutableStateFlow(TaskEditorState())
     val state: StateFlow<TaskEditorState> = _state.asStateFlow()
+    val savedPlaces: StateFlow<List<PlaceEntity>> = placeRepository.savedPlaces.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        emptyList(),
+    )
+    val recentPlaces: StateFlow<List<PlaceEntity>> = placeRepository.recentPlaces.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        emptyList(),
+    )
     private val _events = Channel<EditorEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
 
@@ -75,7 +91,7 @@ class TaskEditorViewModel @Inject constructor(
             originalTask = if (taskId > 0) repository.getById(taskId) else null
             val task = originalTask
             _state.value = if (task == null) {
-                TaskEditorState(isLoading = false)
+                TaskEditorState(isLoading = false, title = initialTitle)
             } else {
                 TaskEditorState(
                     isLoading = false,
@@ -199,12 +215,24 @@ class TaskEditorViewModel @Inject constructor(
         )
     }
 
-    fun searchLocation(query: String, onResult: (ResolvedLocation?) -> Unit) {
+    fun searchLocation(query: String, onResult: (List<ResolvedLocation>) -> Unit) {
         viewModelScope.launch { onResult(locationResolver.search(query)) }
     }
 
     fun reverseLocation(latitude: Double, longitude: Double, onResult: (String?) -> Unit) {
         viewModelScope.launch { onResult(locationResolver.reverse(latitude, longitude)) }
+    }
+
+    fun savePlace(
+        name: String,
+        latitude: Double,
+        longitude: Double,
+        address: String,
+        radius: Float,
+    ) {
+        viewModelScope.launch {
+            placeRepository.savePlace(name, address, latitude, longitude, radius)
+        }
     }
 
     fun save() {
@@ -267,6 +295,14 @@ class TaskEditorViewModel @Inject constructor(
                     geofenceRegisteredAt = if (geofenceChanged) null else base.geofenceRegisteredAt,
                 ),
             )
+            if (current.hasLocation) {
+                placeRepository.recordUsed(
+                    address = current.address,
+                    latitude = requireNotNull(current.latitude),
+                    longitude = requireNotNull(current.longitude),
+                    radiusMeters = current.radiusMeters,
+                )
+            }
             _events.send(EditorEvent.Saved)
         }
     }

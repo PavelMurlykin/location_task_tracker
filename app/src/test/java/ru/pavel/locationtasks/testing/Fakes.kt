@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.map
 import ru.pavel.locationtasks.data.GeofenceLogDao
 import ru.pavel.locationtasks.data.GeofenceLogEntity
 import ru.pavel.locationtasks.data.GeofenceTransition
+import ru.pavel.locationtasks.data.PlaceDao
+import ru.pavel.locationtasks.data.PlaceEntity
 import ru.pavel.locationtasks.data.TaskDao
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.location.GeofenceCoordinator
@@ -103,6 +105,52 @@ class FakeTaskDao(
             if (task.id == id) transform(task) else task
         }
     }
+}
+
+class FakePlaceDao(
+    initialPlaces: List<PlaceEntity> = emptyList(),
+) : PlaceDao {
+    private val places = MutableStateFlow(initialPlaces)
+    private var nextId = (initialPlaces.maxOfOrNull(PlaceEntity::id) ?: 0L) + 1
+
+    override fun observeSaved(): Flow<List<PlaceEntity>> =
+        places.map { values ->
+            values.filter(PlaceEntity::isSaved)
+                .sortedWith(compareByDescending<PlaceEntity> { it.lastUsedAt }.thenBy { it.name })
+        }
+
+    override fun observeRecent(limit: Int): Flow<List<PlaceEntity>> =
+        places.map { values ->
+            values.filterNot(PlaceEntity::isSaved)
+                .sortedByDescending(PlaceEntity::lastUsedAt)
+                .take(limit)
+        }
+
+    override suspend fun getByName(name: String): PlaceEntity? =
+        places.value.firstOrNull { it.name.equals(name, ignoreCase = true) }
+
+    override suspend fun getByCoordinates(
+        latitude: Double,
+        longitude: Double,
+    ): PlaceEntity? = places.value.firstOrNull {
+        it.latitude == latitude && it.longitude == longitude
+    }
+
+    override suspend fun insert(place: PlaceEntity): Long {
+        val id = if (place.id == 0L) nextId++ else place.id
+        places.value += place.copy(id = id)
+        return id
+    }
+
+    override suspend fun update(place: PlaceEntity) {
+        places.value = places.value.map { if (it.id == place.id) place else it }
+    }
+
+    override suspend fun deleteById(id: Long) {
+        places.value = places.value.filterNot { it.id == id }
+    }
+
+    fun snapshot(): List<PlaceEntity> = places.value
 }
 
 class FakeGeofenceLogDao : GeofenceLogDao {

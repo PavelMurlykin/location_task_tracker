@@ -6,13 +6,14 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [TaskEntity::class, GeofenceLogEntity::class],
-    version = 4,
+    entities = [TaskEntity::class, GeofenceLogEntity::class, PlaceEntity::class],
+    version = 5,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun geofenceLogDao(): GeofenceLogDao
+    abstract fun placeDao(): PlaceDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -89,6 +90,61 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL(
                     "ALTER TABLE tasks ADD COLUMN lastNotifiedTransition TEXT",
+                )
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS places (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT,
+                        address TEXT NOT NULL,
+                        latitude REAL NOT NULL,
+                        longitude REAL NOT NULL,
+                        radiusMeters REAL NOT NULL,
+                        lastUsedAt INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_places_name ON places (name)",
+                )
+                db.execSQL(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS index_places_latitude_longitude
+                    ON places (latitude, longitude)
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_places_lastUsedAt ON places (lastUsedAt)",
+                )
+                db.execSQL(
+                    """
+                    INSERT OR IGNORE INTO places (
+                        name,
+                        address,
+                        latitude,
+                        longitude,
+                        radiusMeters,
+                        lastUsedAt,
+                        createdAt
+                    )
+                    SELECT
+                        NULL,
+                        COALESCE(address, ''),
+                        latitude,
+                        longitude,
+                        geofenceRadiusMeters,
+                        MAX(updatedAt),
+                        MIN(createdAt)
+                    FROM tasks
+                    WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+                    GROUP BY latitude, longitude
+                    """.trimIndent(),
                 )
             }
         }
