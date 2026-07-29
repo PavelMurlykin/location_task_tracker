@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -53,6 +54,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import ru.pavel.locationtasks.BuildConfig
+import ru.pavel.locationtasks.R
 import ru.pavel.locationtasks.location.ResolvedLocation
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -93,9 +95,9 @@ fun LocationPickerDialog(
             Manifest.permission.ACCESS_FINE_LOCATION,
         ) == PackageManager.PERMISSION_GRANTED
         errorMessage = if (hasFinePermission) {
-            "Разрешение получено — нажмите кнопку ещё раз"
+            context.getString(R.string.location_permission_granted_retry)
         } else {
-            "Без точной геопозиции текущую точку определить нельзя"
+            context.getString(R.string.precise_location_required)
         }
     }
 
@@ -116,10 +118,13 @@ fun LocationPickerDialog(
             Scaffold(
                 topBar = {
                     TopAppBar(
-                        title = { Text("Место задачи") },
+                        title = { Text(stringResource(R.string.location_picker_title)) },
                         navigationIcon = {
                             IconButton(onClick = onDismiss) {
-                                Icon(Icons.Default.Close, contentDescription = "Закрыть")
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.common_close),
+                                )
                             }
                         },
                     )
@@ -141,7 +146,7 @@ fun LocationPickerDialog(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
                             modifier = Modifier.weight(1f),
-                            label = { Text("Найти адрес") },
+                            label = { Text(stringResource(R.string.search_address_hint)) },
                             singleLine = true,
                         )
                         IconButton(
@@ -150,7 +155,7 @@ fun LocationPickerDialog(
                                 onSearch(searchQuery) { result ->
                                     isSearching = false
                                     if (result == null) {
-                                        errorMessage = "Адрес не найден"
+                                        errorMessage = context.getString(R.string.address_not_found)
                                     } else {
                                         applyResolvedLocation(result)
                                     }
@@ -161,7 +166,10 @@ fun LocationPickerDialog(
                             if (isSearching) {
                                 CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                             } else {
-                                Icon(Icons.Default.Search, contentDescription = "Найти")
+                                Icon(
+                                    Icons.Default.Search,
+                                    contentDescription = stringResource(R.string.common_search),
+                                )
                             }
                         }
                     }
@@ -187,7 +195,7 @@ fun LocationPickerDialog(
                             )
                         }
                         Text(
-                            "Нажмите и удерживайте карту, чтобы поставить метку",
+                            stringResource(R.string.map_long_press_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -200,7 +208,7 @@ fun LocationPickerDialog(
                                 Icon(Icons.Default.Map, contentDescription = null)
                                 Spacer(Modifier.size(10.dp))
                                 Text(
-                                    "Для карты добавьте MAPKIT_API_KEY в local.properties. Координаты можно указать вручную или получить с устройства.",
+                                    stringResource(R.string.map_api_key_missing),
                                     style = MaterialTheme.typography.bodyMedium,
                                 )
                             }
@@ -226,7 +234,9 @@ fun LocationPickerDialog(
                                     )
                                     .addOnSuccessListener { location ->
                                         if (location == null) {
-                                            errorMessage = "Не удалось получить текущую позицию"
+                                            errorMessage = context.getString(
+                                                R.string.current_position_unavailable,
+                                            )
                                         } else {
                                             latitude = location.latitude
                                             longitude = location.longitude
@@ -243,7 +253,7 @@ fun LocationPickerDialog(
                     ) {
                         Icon(Icons.Default.GpsFixed, contentDescription = null)
                         Spacer(Modifier.size(8.dp))
-                        Text("Использовать моё местоположение")
+                        Text(stringResource(R.string.use_my_location))
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -256,7 +266,7 @@ fun LocationPickerDialog(
                                     ?.let { latitude = it }
                             },
                             modifier = Modifier.weight(1f),
-                            label = { Text("Широта") },
+                            label = { Text(stringResource(R.string.latitude_label)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             singleLine = true,
                         )
@@ -269,7 +279,7 @@ fun LocationPickerDialog(
                                     ?.let { longitude = it }
                             },
                             modifier = Modifier.weight(1f),
-                            label = { Text("Долгота") },
+                            label = { Text(stringResource(R.string.longitude_label)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             singleLine = true,
                         )
@@ -278,10 +288,10 @@ fun LocationPickerDialog(
                         value = address,
                         onValueChange = { address = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Название или адрес места") },
+                        label = { Text(stringResource(R.string.place_name_or_address)) },
                         singleLine = true,
                     )
-                    Text("Радиус: ${radius.toInt()} м")
+                    Text(stringResource(R.string.radius_value, radius.toInt()))
                     Slider(
                         value = radius,
                         onValueChange = { radius = it },
@@ -298,14 +308,14 @@ fun LocationPickerDialog(
                             if (validLatitude == null || validLatitude !in -90.0..90.0 ||
                                 validLongitude == null || validLongitude !in -180.0..180.0
                             ) {
-                                errorMessage = "Проверьте широту и долготу"
+                                errorMessage = context.getString(R.string.invalid_coordinates)
                             } else {
                                 onConfirm(validLatitude, validLongitude, address, radius)
                             }
                         },
                         modifier = Modifier.fillMaxWidth().height(50.dp),
                     ) {
-                        Text("Выбрать это место")
+                        Text(stringResource(R.string.choose_this_location))
                     }
                     Spacer(Modifier.height(8.dp))
                 }

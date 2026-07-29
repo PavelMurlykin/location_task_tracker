@@ -3,6 +3,7 @@ package ru.pavel.locationtasks.ui
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.annotation.StringRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +14,8 @@ import kotlinx.coroutines.launch
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.data.TaskRepository
 import ru.pavel.locationtasks.data.GeofenceStatus
+import ru.pavel.locationtasks.data.TaskPriority
+import ru.pavel.locationtasks.R
 import ru.pavel.locationtasks.location.LocationResolver
 import ru.pavel.locationtasks.location.ResolvedLocation
 import javax.inject.Inject
@@ -23,6 +26,7 @@ data class TaskEditorState(
     val title: String = "",
     val description: String = "",
     val dueAt: Long? = null,
+    val priority: TaskPriority = TaskPriority.NORMAL,
     val isCompleted: Boolean = false,
     val latitude: Double? = null,
     val longitude: Double? = null,
@@ -31,7 +35,7 @@ data class TaskEditorState(
     val geofenceEnabled: Boolean = false,
     val geofenceStatus: GeofenceStatus = GeofenceStatus.DISABLED,
     val geofenceStatusDetails: String? = null,
-    val validationMessage: String? = null,
+    @param:StringRes val validationMessageRes: Int? = null,
     val isSaving: Boolean = false,
 ) {
     val hasLocation: Boolean get() = latitude != null && longitude != null
@@ -68,6 +72,7 @@ class TaskEditorViewModel @Inject constructor(
                     title = task.title,
                     description = task.description,
                     dueAt = task.dueAt,
+                    priority = task.resolvedPriority,
                     isCompleted = task.isCompleted,
                     latitude = task.latitude,
                     longitude = task.longitude,
@@ -99,9 +104,10 @@ class TaskEditorViewModel @Inject constructor(
         }
     }
 
-    fun setTitle(value: String) = update { copy(title = value, validationMessage = null) }
+    fun setTitle(value: String) = update { copy(title = value, validationMessageRes = null) }
     fun setDescription(value: String) = update { copy(description = value) }
     fun setDueAt(value: Long?) = update { copy(dueAt = value) }
+    fun setPriority(value: TaskPriority) = update { copy(priority = value) }
     fun setCompleted(value: Boolean) = update { copy(isCompleted = value) }
     fun setGeofenceEnabled(value: Boolean) = update {
         copy(
@@ -120,7 +126,7 @@ class TaskEditorViewModel @Inject constructor(
             geofenceEnabled = true,
             geofenceStatus = GeofenceStatus.PENDING,
             geofenceStatusDetails = null,
-            validationMessage = null,
+            validationMessageRes = null,
         )
     }
 
@@ -146,15 +152,15 @@ class TaskEditorViewModel @Inject constructor(
     fun save() {
         val current = _state.value
         if (current.title.isBlank()) {
-            update { copy(validationMessage = "Введите название задачи") }
+            update { copy(validationMessageRes = R.string.validation_title_required) }
             return
         }
         if (current.geofenceEnabled && !current.hasLocation) {
-            update { copy(validationMessage = "Укажите место для геонапоминания") }
+            update { copy(validationMessageRes = R.string.validation_location_required) }
             return
         }
         viewModelScope.launch {
-            update { copy(isSaving = true, validationMessage = null) }
+            update { copy(isSaving = true, validationMessageRes = null) }
             val base = originalTask ?: TaskEntity(title = current.title.trim())
             val geofenceChanged = originalTask?.let { task ->
                 task.latitude != current.latitude ||
@@ -167,6 +173,7 @@ class TaskEditorViewModel @Inject constructor(
                     title = current.title.trim(),
                     description = current.description.trim(),
                     dueAt = current.dueAt,
+                    priority = current.priority.name,
                     isCompleted = current.isCompleted,
                     latitude = current.latitude,
                     longitude = current.longitude,

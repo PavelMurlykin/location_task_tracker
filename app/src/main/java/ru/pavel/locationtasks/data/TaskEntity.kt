@@ -11,6 +11,8 @@ data class TaskEntity(
     val title: String,
     val description: String = "",
     val dueAt: Long? = null,
+    @ColumnInfo(defaultValue = "'NORMAL'")
+    val priority: String = TaskPriority.NORMAL.name,
     val isCompleted: Boolean = false,
     val latitude: Double? = null,
     val longitude: Double? = null,
@@ -33,6 +35,9 @@ data class TaskEntity(
 
     val resolvedGeofenceStatus: GeofenceStatus
         get() = GeofenceStatus.fromStorage(geofenceStatus)
+
+    val resolvedPriority: TaskPriority
+        get() = TaskPriority.fromStorage(priority)
 
     companion object {
         const val DEFAULT_RADIUS_METERS = 250f

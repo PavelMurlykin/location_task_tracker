@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -41,6 +42,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.pavel.locationtasks.data.GeofenceLogEntity
+import ru.pavel.locationtasks.R
 import ru.pavel.locationtasks.data.UserPreferencesRepository
 import ru.pavel.locationtasks.location.BackgroundExecutionState
 import ru.pavel.locationtasks.location.LocationPermissionState
@@ -78,10 +80,13 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Настройки") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.common_back),
+                        )
                     }
                 },
             )
@@ -96,9 +101,12 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("Повторные уведомления", style = MaterialTheme.typography.titleMedium)
             Text(
-                "Не напоминать об одной задаче повторно в течение:",
+                stringResource(R.string.repeat_notifications_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                stringResource(R.string.repeat_notifications_description),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(
@@ -109,7 +117,7 @@ fun SettingsScreen(
                     FilterChip(
                         selected = cooldownHours == hours,
                         onClick = { viewModel.setCooldownHours(hours) },
-                        label = { Text("$hours ч") },
+                        label = { Text(stringResource(R.string.cooldown_hours, hours)) },
                     )
                 }
             }
@@ -119,26 +127,37 @@ fun SettingsScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("Надёжность геонапоминаний", style = MaterialTheme.typography.titleMedium)
-                    SettingStatus("Точная геопозиция", permissions.preciseLocation)
-                    SettingStatus("Геопозиция в фоне", permissions.backgroundLocation)
-                    SettingStatus("Уведомления", permissions.notifications)
-                    SettingStatus(
-                        "Фоновая работа",
-                        !backgroundState.backgroundRestricted,
-                        enabledText = "Не ограничена",
-                        disabledText = "Ограничена",
+                    Text(
+                        stringResource(R.string.geofence_reliability_title),
+                        style = MaterialTheme.typography.titleMedium,
                     )
                     SettingStatus(
-                        "Энергосбережение",
+                        stringResource(R.string.permission_precise_location),
+                        permissions.preciseLocation,
+                    )
+                    SettingStatus(
+                        stringResource(R.string.permission_background_location),
+                        permissions.backgroundLocation,
+                    )
+                    SettingStatus(
+                        stringResource(R.string.permission_notifications),
+                        permissions.notifications,
+                    )
+                    SettingStatus(
+                        stringResource(R.string.background_work_status),
+                        !backgroundState.backgroundRestricted,
+                        enabledText = stringResource(R.string.status_not_restricted),
+                        disabledText = stringResource(R.string.status_restricted),
+                    )
+                    SettingStatus(
+                        stringResource(R.string.battery_saving_status),
                         backgroundState.batteryOptimizationsIgnored,
-                        enabledText = "Без ограничений",
-                        disabledText = "Может задерживать",
+                        enabledText = stringResource(R.string.status_unrestricted),
+                        disabledText = stringResource(R.string.status_may_delay),
                     )
                     if (backgroundState.mayDelayGeofences) {
                         Text(
-                            "Android или оболочка устройства может задерживать события геозон. " +
-                                "Разрешите приложению фоновую работу без ограничений.",
+                            stringResource(R.string.system_may_delay_warning),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                         )
@@ -152,7 +171,7 @@ fun SettingsScreen(
                             )
                         },
                     ) {
-                        Text("Открыть настройки приложения")
+                        Text(stringResource(R.string.open_app_settings))
                         Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
                     }
                     TextButton(
@@ -170,7 +189,7 @@ fun SettingsScreen(
                             }
                         },
                     ) {
-                        Text("Открыть настройки энергосбережения")
+                        Text(stringResource(R.string.open_battery_settings))
                         Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
                     }
                     FilledTonalButton(
@@ -180,19 +199,22 @@ fun SettingsScreen(
                     ) {
                         Text(
                             if (isCheckingGeofences) {
-                                "Проверяем геозоны…"
+                                stringResource(R.string.checking_geofences)
                             } else {
-                                "Проверить геозоны"
+                                stringResource(R.string.check_geofences)
                             },
                         )
                     }
                 }
             }
 
-            Text("Последние события геозон", style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.recent_geofence_events),
+                style = MaterialTheme.typography.titleMedium,
+            )
             if (geofenceLogs.isEmpty()) {
                 Text(
-                    "Событий пока нет. Здесь появятся результаты регистрации и срабатываний.",
+                    stringResource(R.string.no_geofence_events),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -203,12 +225,12 @@ fun SettingsScreen(
             }
 
             Text(
-                "Координаты и задачи хранятся только на этом устройстве.",
+                stringResource(R.string.local_storage_notice),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             TextButton(onClick = onOpenPrivacy) {
-                Text("Политика конфиденциальности")
+                Text(stringResource(R.string.privacy_policy))
                 Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
             }
         }
@@ -219,8 +241,8 @@ fun SettingsScreen(
 private fun SettingStatus(
     label: String,
     enabled: Boolean,
-    enabledText: String = "Разрешено",
-    disabledText: String = "Не разрешено",
+    enabledText: String = stringResource(R.string.status_allowed),
+    disabledText: String = stringResource(R.string.status_not_allowed),
 ) {
     Row(modifier = Modifier.fillMaxWidth()) {
         Text(label, modifier = Modifier.weight(1f))
@@ -240,7 +262,7 @@ private fun GeofenceLogCard(entry: GeofenceLogEntity) {
         ) {
             Text(entry.taskTitle, style = MaterialTheme.typography.titleSmall)
             Text(
-                logOutcomeLabel(entry),
+                stringResource(logOutcomeLabelRes(entry)),
                 style = MaterialTheme.typography.bodyMedium,
                 color = when (entry.outcome) {
                     GeofenceLogEntity.OUTCOME_ACTIVE,
@@ -251,7 +273,7 @@ private fun GeofenceLogCard(entry: GeofenceLogEntity) {
             )
             entry.details?.takeIf(String::isNotBlank)?.let {
                 Text(
-                    it,
+                    localizedLogDetails(it),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -265,22 +287,33 @@ private fun GeofenceLogCard(entry: GeofenceLogEntity) {
     }
 }
 
-private fun logOutcomeLabel(entry: GeofenceLogEntity): String = when (entry.outcome) {
+@Composable
+private fun localizedLogDetails(details: String): String = when {
+    details == "INVALID_TASK" -> stringResource(R.string.geofence_invalid_task)
+    details.startsWith("RETRY_SCHEDULED|") -> stringResource(
+        R.string.geofence_retry_scheduled_detail,
+        details.substringAfter('|'),
+    )
+    details.startsWith("MISSING_") -> stringResource(R.string.log_missing_permissions)
+    else -> details
+}
+
+private fun logOutcomeLabelRes(entry: GeofenceLogEntity): Int = when (entry.outcome) {
     GeofenceLogEntity.OUTCOME_ACTIVE ->
         if (entry.event == GeofenceLogEntity.EVENT_RESTORE) {
-            "Геозона восстановлена"
+            R.string.log_geofence_restored
         } else {
-            "Геозона зарегистрирована"
+            R.string.log_geofence_registered
         }
-    GeofenceLogEntity.OUTCOME_ERROR -> "Ошибка регистрации"
-    GeofenceLogEntity.OUTCOME_MISSING_PERMISSION -> "Нет необходимых разрешений"
-    GeofenceLogEntity.OUTCOME_LIMIT_REACHED -> "Не зарегистрирована из-за лимита"
-    GeofenceLogEntity.OUTCOME_NOTIFIED -> "Вход в геозону — уведомление показано"
-    GeofenceLogEntity.OUTCOME_COOLDOWN -> "Вход в геозону — действует интервал повтора"
+    GeofenceLogEntity.OUTCOME_ERROR -> R.string.log_registration_error
+    GeofenceLogEntity.OUTCOME_MISSING_PERMISSION -> R.string.log_missing_permissions
+    GeofenceLogEntity.OUTCOME_LIMIT_REACHED -> R.string.log_limit_reached
+    GeofenceLogEntity.OUTCOME_NOTIFIED -> R.string.log_notification_shown
+    GeofenceLogEntity.OUTCOME_COOLDOWN -> R.string.log_cooldown
     GeofenceLogEntity.OUTCOME_NOTIFICATIONS_BLOCKED ->
-        "Вход в геозону — уведомления запрещены"
-    GeofenceLogEntity.OUTCOME_TASK_INACTIVE -> "Вход в геозону — задача уже неактивна"
-    else -> entry.outcome
+        R.string.log_notifications_blocked
+    GeofenceLogEntity.OUTCOME_TASK_INACTIVE -> R.string.log_task_inactive
+    else -> R.string.log_registration_error
 }
 
 private val LOG_DATE_FORMAT: DateTimeFormatter = DateTimeFormatter

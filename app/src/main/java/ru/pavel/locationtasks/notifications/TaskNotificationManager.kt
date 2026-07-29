@@ -23,7 +23,6 @@ class TaskNotificationManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
     fun createChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val channel = NotificationChannel(
             CHANNEL_ID,
             context.getString(R.string.notification_channel_name),
@@ -42,10 +41,9 @@ class TaskNotificationManager @Inject constructor(
         ) return false
         val notificationManager = NotificationManagerCompat.from(context)
         if (!notificationManager.areNotificationsEnabled()) return false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            context.getSystemService(NotificationManager::class.java)
-                .getNotificationChannel(CHANNEL_ID)
-                ?.importance == NotificationManager.IMPORTANCE_NONE
+        if (context.getSystemService(NotificationManager::class.java)
+            .getNotificationChannel(CHANNEL_ID)
+            ?.importance == NotificationManager.IMPORTANCE_NONE
         ) return false
 
         val contentIntent = PendingIntent.getActivity(
@@ -67,17 +65,28 @@ class TaskNotificationManager @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val place = task.address?.takeIf(String::isNotBlank) ?: "выбранное место"
+        val place = task.address?.takeIf(String::isNotBlank)
+            ?: context.getString(R.string.notification_selected_place)
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(task.title)
-            .setContentText("Вы рядом: $place")
+            .setContentText(context.getString(R.string.notification_nearby, place))
             .setStyle(
                 NotificationCompat.BigTextStyle()
-                    .bigText("Поблизости можно выполнить задачу «${task.title}». $place"),
+                    .bigText(
+                        context.getString(
+                            R.string.notification_nearby_details,
+                            task.title,
+                            place,
+                        ),
+                    ),
             )
             .setContentIntent(contentIntent)
-            .addAction(0, "Выполнено", completeIntent)
+            .addAction(
+                0,
+                context.getString(R.string.notification_complete_action),
+                completeIntent,
+            )
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)

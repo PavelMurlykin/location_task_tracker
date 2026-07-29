@@ -82,7 +82,7 @@ class ReliableGeofenceCoordinator @Inject constructor(
             updateStatus(
                 task = task,
                 status = GeofenceStatus.LIMIT_REACHED,
-                details = "Android поддерживает не более ${GeofenceManager.MAX_GEOFENCES} активных геозон",
+                details = null,
                 registeredAt = null,
                 logOutcome = GeofenceLogEntity.OUTCOME_LIMIT_REACHED,
             )
@@ -146,7 +146,7 @@ class ReliableGeofenceCoordinator @Inject constructor(
                     updateStatus(
                         task = task,
                         status = GeofenceStatus.ERROR,
-                        details = "Проверьте координаты и радиус геозоны",
+                        details = DETAIL_INVALID_TASK,
                         registeredAt = null,
                         logOutcome = GeofenceLogEntity.OUTCOME_ERROR,
                         forceLog = true,
@@ -158,7 +158,7 @@ class ReliableGeofenceCoordinator @Inject constructor(
                     updateStatus(
                         task = task,
                         status = GeofenceStatus.ERROR,
-                        details = "Повтор запланирован. ${result.cause.toDiagnosticMessage()}",
+                        details = "$DETAIL_RETRY_SCHEDULED|${result.cause.toDiagnosticMessage()}",
                         registeredAt = null,
                         logOutcome = GeofenceLogEntity.OUTCOME_ERROR,
                         forceLog = true,
@@ -209,17 +209,25 @@ class ReliableGeofenceCoordinator @Inject constructor(
 
     private fun missingPermissionDetails(permissions: LocationPermissionState): String =
         when {
-            !permissions.preciseLocation -> "Нет разрешения на точное местоположение"
-            !permissions.backgroundLocation -> "Нет фонового доступа к местоположению"
-            else -> "Недостаточно разрешений для геозоны"
+            !permissions.preciseLocation -> DETAIL_MISSING_PRECISE_LOCATION
+            !permissions.backgroundLocation -> DETAIL_MISSING_BACKGROUND_LOCATION
+            else -> DETAIL_MISSING_PERMISSION
         }
 
     private fun Throwable.toDiagnosticMessage(): String {
-        val type = this::class.simpleName ?: "Ошибка"
+        val type = this::class.simpleName ?: "Error"
         val message = localizedMessage
             ?.replace(Regex("\\s+"), " ")
             ?.take(180)
             ?.takeIf(String::isNotBlank)
         return if (message == null) type else "$type: $message"
+    }
+
+    companion object {
+        const val DETAIL_INVALID_TASK = "INVALID_TASK"
+        const val DETAIL_RETRY_SCHEDULED = "RETRY_SCHEDULED"
+        private const val DETAIL_MISSING_PRECISE_LOCATION = "MISSING_PRECISE_LOCATION"
+        private const val DETAIL_MISSING_BACKGROUND_LOCATION = "MISSING_BACKGROUND_LOCATION"
+        private const val DETAIL_MISSING_PERMISSION = "MISSING_PERMISSION"
     }
 }

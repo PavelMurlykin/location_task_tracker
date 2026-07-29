@@ -38,6 +38,7 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -62,6 +63,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -70,6 +72,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.pavel.locationtasks.data.GeofenceStatus
+import ru.pavel.locationtasks.data.TaskPriority
+import ru.pavel.locationtasks.R
 import ru.pavel.locationtasks.location.BackgroundExecutionState
 import ru.pavel.locationtasks.location.LocationPermissionState
 import java.time.Instant
@@ -94,16 +98,28 @@ fun TaskEditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (state.isExisting) "Задача" else "Новая задача") },
+                title = {
+                    Text(
+                        stringResource(
+                            if (state.isExisting) R.string.edit_task_title else R.string.new_task_title,
+                        ),
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.common_back),
+                        )
                     }
                 },
                 actions = {
                     if (state.isExisting) {
                         IconButton(onClick = { showDeleteConfirmation = true }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Удалить")
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = stringResource(R.string.common_delete),
+                            )
                         }
                     }
                 },
@@ -132,18 +148,46 @@ fun TaskEditorScreen(
                     value = state.title,
                     onValueChange = viewModel::setTitle,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Название") },
+                    label = { Text(stringResource(R.string.task_title_label)) },
                     singleLine = true,
-                    isError = state.validationMessage?.contains("название", ignoreCase = true) == true,
+                    isError = state.validationMessageRes == R.string.validation_title_required,
                 )
                 OutlinedTextField(
                     value = state.description,
                     onValueChange = viewModel::setDescription,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Описание") },
+                    label = { Text(stringResource(R.string.task_description_label)) },
                     minLines = 3,
                     maxLines = 7,
                 )
+
+                Text(
+                    stringResource(R.string.priority_label),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TaskPriority.entries.forEach { priority ->
+                        FilterChip(
+                            selected = state.priority == priority,
+                            onClick = { viewModel.setPriority(priority) },
+                            modifier = Modifier.weight(1f),
+                            label = {
+                                Text(
+                                    stringResource(
+                                        when (priority) {
+                                            TaskPriority.LOW -> R.string.priority_low
+                                            TaskPriority.NORMAL -> R.string.priority_normal
+                                            TaskPriority.HIGH -> R.string.priority_high
+                                        },
+                                    ),
+                                )
+                            },
+                        )
+                    }
+                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -155,16 +199,21 @@ fun TaskEditorScreen(
                     ) {
                         Icon(Icons.Default.CalendarMonth, contentDescription = null)
                         Spacer(Modifier.size(8.dp))
-                        Text(state.dueAt?.let(::formatEditorDate) ?: "Указать срок")
+                        Text(
+                            state.dueAt?.let(::formatEditorDate)
+                                ?: stringResource(R.string.task_set_due_date),
+                        )
                     }
                     if (state.dueAt != null) {
-                        TextButton(onClick = { viewModel.setDueAt(null) }) { Text("Сбросить") }
+                        TextButton(onClick = { viewModel.setDueAt(null) }) {
+                            Text(stringResource(R.string.common_reset))
+                        }
                     }
                 }
 
                 HorizontalDivider()
                 Text(
-                    "Напоминание по месту",
+                    stringResource(R.string.location_reminder_section),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -184,11 +233,18 @@ fun TaskEditorScreen(
                                 Spacer(Modifier.size(8.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        state.address.ifBlank { "Выбранная точка" },
+                                        state.address.ifBlank {
+                                            stringResource(R.string.selected_point)
+                                        },
                                         style = MaterialTheme.typography.bodyLarge,
                                     )
                                     Text(
-                                        "${formatCoordinate(state.latitude)}, ${formatCoordinate(state.longitude)} · ${state.radiusMeters.toInt()} м",
+                                        stringResource(
+                                            R.string.location_summary,
+                                            formatCoordinate(state.latitude),
+                                            formatCoordinate(state.longitude),
+                                            state.radiusMeters.toInt(),
+                                        ),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -201,10 +257,13 @@ fun TaskEditorScreen(
                                 ) {
                                     Icon(Icons.Default.EditLocation, contentDescription = null)
                                     Spacer(Modifier.size(6.dp))
-                                    Text("Изменить")
+                                    Text(stringResource(R.string.common_edit))
                                 }
                                 OutlinedButton(onClick = viewModel::clearLocation) {
-                                    Icon(Icons.Default.LocationOff, contentDescription = "Удалить место")
+                                    Icon(
+                                        Icons.Default.LocationOff,
+                                        contentDescription = stringResource(R.string.remove_location),
+                                    )
                                 }
                             }
                         }
@@ -216,7 +275,7 @@ fun TaskEditorScreen(
                     ) {
                         Icon(Icons.Default.LocationOn, contentDescription = null)
                         Spacer(Modifier.size(8.dp))
-                        Text("Выбрать место")
+                        Text(stringResource(R.string.choose_location))
                     }
                 }
 
@@ -225,9 +284,12 @@ fun TaskEditorScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Геонапоминание", style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "Сообщить, когда вы окажетесь рядом",
+                            stringResource(R.string.geofence_title),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            stringResource(R.string.geofence_description),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -251,7 +313,10 @@ fun TaskEditorScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Задача выполнена", modifier = Modifier.weight(1f))
+                        Text(
+                            stringResource(R.string.task_completed_label),
+                            modifier = Modifier.weight(1f),
+                        )
                         Switch(
                             checked = state.isCompleted,
                             onCheckedChange = viewModel::setCompleted,
@@ -259,8 +324,8 @@ fun TaskEditorScreen(
                     }
                 }
 
-                state.validationMessage?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error)
+                state.validationMessageRes?.let {
+                    Text(stringResource(it), color = MaterialTheme.colorScheme.error)
                 }
                 Button(
                     onClick = viewModel::save,
@@ -275,7 +340,7 @@ fun TaskEditorScreen(
                     } else {
                         Icon(Icons.Default.Check, contentDescription = null)
                         Spacer(Modifier.size(8.dp))
-                        Text("Сохранить")
+                        Text(stringResource(R.string.common_save))
                     }
                 }
                 Spacer(Modifier.height(12.dp))
@@ -293,10 +358,12 @@ fun TaskEditorScreen(
                         viewModel.setDueAt(datePickerState.selectedDateMillis)
                         showDatePicker = false
                     },
-                ) { Text("Готово") }
+                ) { Text(stringResource(R.string.common_done)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Отмена") }
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
             },
         ) {
             DatePicker(state = datePickerState)
@@ -323,13 +390,17 @@ fun TaskEditorScreen(
     if (showDeleteConfirmation) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
-            title = { Text("Удалить задачу?") },
-            text = { Text("Задача и её геонапоминание будут удалены.") },
+            title = { Text(stringResource(R.string.delete_task_title)) },
+            text = { Text(stringResource(R.string.delete_task_message)) },
             confirmButton = {
-                TextButton(onClick = viewModel::delete) { Text("Удалить") }
+                TextButton(onClick = viewModel::delete) {
+                    Text(stringResource(R.string.common_delete))
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirmation = false }) { Text("Отмена") }
+                TextButton(onClick = { showDeleteConfirmation = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
             },
         )
     }
@@ -372,7 +443,10 @@ private fun PermissionCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Состояние геонапоминания", fontWeight = FontWeight.SemiBold)
+            Text(
+                stringResource(R.string.geofence_state_title),
+                fontWeight = FontWeight.SemiBold,
+            )
             GeofenceStateRow(
                 status = when {
                     !permissions.canRegisterGeofences || !permissions.notifications ->
@@ -382,10 +456,19 @@ private fun PermissionCard(
                 details = geofenceStatusDetails,
             )
             HorizontalDivider()
-            Text("Разрешения", fontWeight = FontWeight.SemiBold)
-            PermissionRow("Точная геопозиция", permissions.preciseLocation)
-            PermissionRow("Геопозиция в фоне", permissions.backgroundLocation)
-            PermissionRow("Уведомления", permissions.notifications)
+            Text(stringResource(R.string.permissions_title), fontWeight = FontWeight.SemiBold)
+            PermissionRow(
+                stringResource(R.string.permission_precise_location),
+                permissions.preciseLocation,
+            )
+            PermissionRow(
+                stringResource(R.string.permission_background_location),
+                permissions.backgroundLocation,
+            )
+            PermissionRow(
+                stringResource(R.string.permission_notifications),
+                permissions.notifications,
+            )
 
             when {
                 !permissions.preciseLocation -> Button(
@@ -398,21 +481,21 @@ private fun PermissionCard(
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("Разрешить геопозицию") }
+                ) { Text(stringResource(R.string.allow_location)) }
 
                 !permissions.backgroundLocation -> Button(
                     onClick = { showBackgroundDisclosure = true },
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("Разрешить работу в фоне") }
+                ) { Text(stringResource(R.string.allow_background_work)) }
 
                 !permissions.notifications && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
                     Button(
                         onClick = { notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Разрешить уведомления") }
+                    ) { Text(stringResource(R.string.allow_notifications)) }
 
                 else -> Text(
-                    "Геонапоминание готово к работе",
+                    stringResource(R.string.geofence_ready),
                     color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -421,9 +504,9 @@ private fun PermissionCard(
             if (permissions.canRegisterGeofences && backgroundState.mayDelayGeofences) {
                 Text(
                     if (backgroundState.backgroundRestricted) {
-                        "Фоновая работа приложения ограничена системой. Геонапоминания могут задерживаться."
+                        stringResource(R.string.background_restricted_warning)
                     } else {
-                        "Режим энергосбережения может задерживать геонапоминания."
+                        stringResource(R.string.battery_optimization_warning)
                     },
                     color = Color(0xFF9A6700),
                     style = MaterialTheme.typography.bodySmall,
@@ -443,7 +526,7 @@ private fun PermissionCard(
                         }
                     },
                 ) {
-                    Text("Настроить энергосбережение")
+                    Text(stringResource(R.string.configure_battery_optimization))
                 }
             }
         }
@@ -453,10 +536,10 @@ private fun PermissionCard(
         AlertDialog(
             onDismissRequest = { showBackgroundDisclosure = false },
             icon = { Icon(Icons.Default.Warning, contentDescription = null) },
-            title = { Text("Фоновая геопозиция") },
+            title = { Text(stringResource(R.string.background_location_title)) },
             text = {
                 Text(
-                    "Приложение использует данные о местоположении в фоне, в том числе когда приложение закрыто или не используется, чтобы определить вход в место задачи и показать напоминание. Данные остаются на устройстве и не передаются третьим лицам.",
+                    stringResource(R.string.background_location_disclosure),
                 )
             },
             confirmButton = {
@@ -473,10 +556,12 @@ private fun PermissionCard(
                             )
                         }
                     },
-                ) { Text("Продолжить") }
+                ) { Text(stringResource(R.string.common_continue)) }
             },
             dismissButton = {
-                TextButton(onClick = { showBackgroundDisclosure = false }) { Text("Не сейчас") }
+                TextButton(onClick = { showBackgroundDisclosure = false }) {
+                    Text(stringResource(R.string.common_not_now))
+                }
             },
         )
     }
@@ -487,27 +572,40 @@ private fun GeofenceStateRow(
     status: GeofenceStatus,
     details: String?,
 ) {
-    val (label, color) = when (status) {
-        GeofenceStatus.ACTIVE -> "Активно" to MaterialTheme.colorScheme.primary
-        GeofenceStatus.PENDING -> "Ожидает регистрации" to MaterialTheme.colorScheme.onSurfaceVariant
+    val (labelRes, color) = when (status) {
+        GeofenceStatus.ACTIVE ->
+            R.string.geofence_state_active to MaterialTheme.colorScheme.primary
+        GeofenceStatus.PENDING ->
+            R.string.geofence_state_pending to MaterialTheme.colorScheme.onSurfaceVariant
         GeofenceStatus.MISSING_PERMISSION ->
-            "Нет необходимых разрешений" to MaterialTheme.colorScheme.error
+            R.string.geofence_state_missing_permissions to MaterialTheme.colorScheme.error
         GeofenceStatus.LIMIT_REACHED ->
-            "Неактивно: лимит 100 геозон" to MaterialTheme.colorScheme.error
+            R.string.geofence_state_limit to MaterialTheme.colorScheme.error
         GeofenceStatus.ERROR ->
-            "Ошибка регистрации" to MaterialTheme.colorScheme.error
-        GeofenceStatus.DISABLED -> "Выключено" to MaterialTheme.colorScheme.onSurfaceVariant
+            R.string.geofence_state_error to MaterialTheme.colorScheme.error
+        GeofenceStatus.DISABLED ->
+            R.string.geofence_state_disabled to MaterialTheme.colorScheme.onSurfaceVariant
     }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, color = color, style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(labelRes), color = color, style = MaterialTheme.typography.bodyMedium)
         if (status == GeofenceStatus.ERROR && !details.isNullOrBlank()) {
             Text(
-                details,
+                localizedGeofenceDetails(details),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
         }
     }
+}
+
+@Composable
+private fun localizedGeofenceDetails(details: String): String = when {
+    details == "INVALID_TASK" -> stringResource(R.string.geofence_invalid_task)
+    details.startsWith("RETRY_SCHEDULED|") -> stringResource(
+        R.string.geofence_retry_scheduled_detail,
+        details.substringAfter('|'),
+    )
+    else -> details
 }
 
 @Composable

@@ -1,61 +1,99 @@
 package ru.pavel.locationtasks.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import ru.pavel.locationtasks.data.TaskEntity
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
+import kotlinx.coroutines.launch
+import ru.pavel.locationtasks.R
 import ru.pavel.locationtasks.data.GeofenceStatus
+import ru.pavel.locationtasks.data.TaskEntity
+import ru.pavel.locationtasks.data.TaskPriority
 import ru.pavel.locationtasks.location.LocationPermissionState
+import java.text.DateFormat
 import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-
-private enum class TaskFilter { ACTIVE, COMPLETED }
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,10 +104,56 @@ fun TaskListScreen(
     viewModel: TaskListViewModel = hiltViewModel(),
 ) {
     val tasks by viewModel.tasks.collectAsState()
-    var filter by remember { mutableStateOf(TaskFilter.ACTIVE) }
+    var criteria by remember { mutableStateOf(TaskListCriteria()) }
+    var currentLocation by remember { mutableStateOf<GeoPoint?>(null) }
+    var sortMenuExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var permissions by remember { mutableStateOf(LocationPermissionState.from(context)) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    val fusedLocationClient = remember(context) {
+        LocationServices.getFusedLocationProviderClient(context)
+    }
+
+    val fetchCurrentLocation = {
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            @Suppress("MissingPermission")
+            fusedLocationClient.getCurrentLocation(
+                Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                CancellationTokenSource().token,
+            ).addOnSuccessListener { location ->
+                if (location == null) {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar(
+                            context.getString(R.string.current_location_unavailable),
+                        )
+                    }
+                } else {
+                    currentLocation = GeoPoint(location.latitude, location.longitude)
+                }
+            }
+        }
+    }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) {
+        permissions = LocationPermissionState.from(context)
+        if (permissions.preciseLocation) {
+            fetchCurrentLocation()
+        } else {
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    context.getString(R.string.distance_permission_required),
+                )
+            }
+        }
+    }
+
     DisposableEffect(lifecycleOwner, context) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -79,24 +163,87 @@ fun TaskListScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    val visibleTasks = tasks.filter { task ->
-        if (filter == TaskFilter.ACTIVE) !task.isCompleted else task.isCompleted
+
+    LaunchedEffect(viewModel, context) {
+        viewModel.events.collect { event ->
+            val message = context.getString(
+                event.messageRes,
+                *event.messageArgs.toTypedArray(),
+            )
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = event.undoToken?.let { context.getString(R.string.common_undo) },
+                withDismissAction = event.undoToken != null,
+            )
+            event.undoToken?.let { token ->
+                if (result == SnackbarResult.ActionPerformed) {
+                    viewModel.undo(token)
+                } else {
+                    viewModel.discardUndo(token)
+                }
+            }
+        }
+    }
+
+    val visibleTasks = remember(tasks, criteria, currentLocation) {
+        filterAndSortTasks(
+            tasks = tasks,
+            criteria = criteria,
+            currentLocation = currentLocation,
+        )
+    }
+    val selectSort: (TaskSort) -> Unit = { sort ->
+        criteria = criteria.copy(sort = sort)
+        sortMenuExpanded = false
+        if (sort == TaskSort.DISTANCE && currentLocation == null) {
+            if (permissions.preciseLocation) {
+                fetchCurrentLocation()
+            } else {
+                locationPermissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                    ),
+                )
+            }
+        }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Задачи рядом") },
+                title = { Text(stringResource(R.string.app_name)) },
                 actions = {
+                    Box {
+                        IconButton(onClick = { sortMenuExpanded = true }) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Sort,
+                                contentDescription = stringResource(R.string.sort_tasks),
+                            )
+                        }
+                        SortMenu(
+                            expanded = sortMenuExpanded,
+                            selectedSort = criteria.sort,
+                            onDismiss = { sortMenuExpanded = false },
+                            onSelect = selectSort,
+                        )
+                    }
                     IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Настройки")
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = stringResource(R.string.settings_title),
+                        )
                     }
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(onClick = onCreateTask) {
-                Icon(Icons.Default.Add, contentDescription = "Новая задача")
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = stringResource(R.string.new_task_content_description),
+                )
             }
         },
     ) { padding ->
@@ -105,36 +252,49 @@ fun TaskListScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilterChip(
-                    selected = filter == TaskFilter.ACTIVE,
-                    onClick = { filter = TaskFilter.ACTIVE },
-                    label = { Text("Активные (${tasks.count { !it.isCompleted }})") },
-                )
-                FilterChip(
-                    selected = filter == TaskFilter.COMPLETED,
-                    onClick = { filter = TaskFilter.COMPLETED },
-                    label = { Text("Выполненные (${tasks.count { it.isCompleted }})") },
-                )
-            }
+            SearchField(
+                query = criteria.query,
+                onQueryChange = { criteria = criteria.copy(query = it) },
+            )
+            SectionSelector(
+                selected = criteria.section,
+                activeCount = tasks.count { !it.isCompleted },
+                completedCount = tasks.count(TaskEntity::isCompleted),
+                onSelected = { criteria = criteria.copy(section = it) },
+            )
+            FilterAndSortRow(
+                selectedFilter = criteria.quickFilter,
+                selectedSort = criteria.sort,
+                onFilterSelected = { criteria = criteria.copy(quickFilter = it) },
+                onOpenSort = { sortMenuExpanded = true },
+            )
 
             if (visibleTasks.isEmpty()) {
-                EmptyTasks(filter, Modifier.weight(1f))
+                EmptyTasks(
+                    section = criteria.section,
+                    hasCriteria = criteria.query.isNotBlank() || criteria.quickFilter != null,
+                    modifier = Modifier.weight(1f),
+                )
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 8.dp,
+                        bottom = 96.dp,
+                    ),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     items(visibleTasks, key = TaskEntity::id) { task ->
-                        TaskCard(
+                        SwipeActionTaskCard(
                             task = task,
                             permissions = permissions,
+                            currentLocation = currentLocation,
                             onClick = { onOpenTask(task.id) },
                             onCompletedChange = { viewModel.setCompleted(task, it) },
+                            onSnooze = { viewModel.snooze(task) },
+                            onDelete = { viewModel.delete(task) },
                         )
                     }
                 }
@@ -144,17 +304,136 @@ fun TaskListScreen(
 }
 
 @Composable
-private fun EmptyTasks(filter: TaskFilter, modifier: Modifier = Modifier) {
+private fun SearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = stringResource(R.string.clear_search),
+                    )
+                }
+            }
+        },
+        placeholder = { Text(stringResource(R.string.task_search_hint)) },
+        singleLine = true,
+    )
+}
+
+@Composable
+private fun SectionSelector(
+    selected: TaskSection,
+    activeCount: Int,
+    completedCount: Int,
+    onSelected: (TaskSection) -> Unit,
+) {
+    Row(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChip(
+            selected = selected == TaskSection.ACTIVE,
+            onClick = { onSelected(TaskSection.ACTIVE) },
+            label = { Text(stringResource(R.string.task_section_active, activeCount)) },
+        )
+        FilterChip(
+            selected = selected == TaskSection.COMPLETED,
+            onClick = { onSelected(TaskSection.COMPLETED) },
+            label = { Text(stringResource(R.string.task_section_completed, completedCount)) },
+        )
+    }
+}
+
+@Composable
+private fun FilterAndSortRow(
+    selectedFilter: TaskQuickFilter?,
+    selectedSort: TaskSort,
+    onFilterSelected: (TaskQuickFilter?) -> Unit,
+    onOpenSort: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChip(
+            selected = selectedFilter == null,
+            onClick = { onFilterSelected(null) },
+            label = { Text(stringResource(R.string.filter_all)) },
+        )
+        TaskQuickFilter.entries.forEach { filter ->
+            FilterChip(
+                selected = selectedFilter == filter,
+                onClick = { onFilterSelected(filter) },
+                label = { Text(stringResource(filter.labelRes())) },
+            )
+        }
+        FilterChip(
+            selected = true,
+            onClick = onOpenSort,
+            leadingIcon = { Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null) },
+            label = { Text(stringResource(selectedSort.labelRes())) },
+        )
+    }
+}
+
+@Composable
+private fun SortMenu(
+    expanded: Boolean,
+    selectedSort: TaskSort,
+    onDismiss: () -> Unit,
+    onSelect: (TaskSort) -> Unit,
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        TaskSort.entries.forEach { sort ->
+            DropdownMenuItem(
+                text = { Text(stringResource(sort.labelRes())) },
+                onClick = { onSelect(sort) },
+                leadingIcon = {
+                    if (selectedSort == sort) {
+                        Icon(Icons.Default.Check, contentDescription = null)
+                    }
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyTasks(
+    section: TaskSection,
+    hasCriteria: Boolean,
+    modifier: Modifier = Modifier,
+) {
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
             Text(
-                text = if (filter == TaskFilter.ACTIVE) "Активных задач пока нет" else "Нет выполненных задач",
+                text = when {
+                    hasCriteria -> stringResource(R.string.empty_filtered_tasks)
+                    section == TaskSection.ACTIVE -> stringResource(R.string.empty_active_tasks)
+                    else -> stringResource(R.string.empty_completed_tasks)
+                },
                 style = MaterialTheme.typography.titleMedium,
             )
-            if (filter == TaskFilter.ACTIVE) {
+            if (!hasCriteria && section == TaskSection.ACTIVE) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "Добавьте задачу и привяжите к ней место",
+                    stringResource(R.string.empty_active_tasks_hint),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -164,20 +443,141 @@ private fun EmptyTasks(filter: TaskFilter, modifier: Modifier = Modifier) {
 }
 
 @Composable
+private fun SwipeActionTaskCard(
+    task: TaskEntity,
+    permissions: LocationPermissionState,
+    currentLocation: GeoPoint?,
+    onClick: () -> Unit,
+    onCompletedChange: (Boolean) -> Unit,
+    onSnooze: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val density = LocalDensity.current
+    val leftActionWidth = 84.dp
+    val rightActionWidth = if (task.isCompleted) 84.dp else 168.dp
+    val maxRightPx = with(density) { leftActionWidth.toPx() }
+    val maxLeftPx = with(density) { -rightActionWidth.toPx() }
+    val settleThresholdPx = with(density) { 36.dp.toPx() }
+    var offsetX by remember(task.id) { mutableFloatStateOf(0f) }
+    val shape = RoundedCornerShape(14.dp)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape),
+    ) {
+        Row(
+            modifier = Modifier
+                .matchParentSize(),
+        ) {
+            SwipeAction(
+                modifier = Modifier
+                    .width(leftActionWidth)
+                    .fillMaxHeight(),
+                label = if (task.isCompleted) {
+                    stringResource(R.string.swipe_reopen)
+                } else {
+                    stringResource(R.string.swipe_complete)
+                },
+                icon = Icons.Default.Check,
+                color = MaterialTheme.colorScheme.primary,
+                onClick = {
+                    offsetX = 0f
+                    onCompletedChange(!task.isCompleted)
+                },
+            )
+            Spacer(Modifier.weight(1f))
+            if (!task.isCompleted) {
+                SwipeAction(
+                    modifier = Modifier.width(84.dp).fillMaxHeight(),
+                    label = stringResource(R.string.swipe_snooze),
+                    icon = Icons.Default.Schedule,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    onClick = {
+                        offsetX = 0f
+                        onSnooze()
+                    },
+                )
+            }
+            SwipeAction(
+                modifier = Modifier.width(84.dp).fillMaxHeight(),
+                label = stringResource(R.string.swipe_delete),
+                icon = Icons.Default.Delete,
+                color = MaterialTheme.colorScheme.error,
+                onClick = {
+                    offsetX = 0f
+                    onDelete()
+                },
+            )
+        }
+
+        TaskCard(
+            task = task,
+            permissions = permissions,
+            currentLocation = currentLocation,
+            onClick = {
+                if (offsetX == 0f) onClick() else offsetX = 0f
+            },
+            onCompletedChange = onCompletedChange,
+            modifier = Modifier
+                .offset { IntOffset(offsetX.roundToInt(), 0) }
+                .pointerInput(task.id, maxLeftPx, maxRightPx) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            offsetX = when {
+                                offsetX > settleThresholdPx -> maxRightPx
+                                offsetX < -settleThresholdPx -> maxLeftPx
+                                else -> 0f
+                            }
+                        },
+                        onDragCancel = { offsetX = 0f },
+                    ) { change, dragAmount ->
+                        change.consume()
+                        offsetX = (offsetX + dragAmount).coerceIn(maxLeftPx, maxRightPx)
+                    }
+                },
+        )
+    }
+}
+
+@Composable
+private fun SwipeAction(
+    modifier: Modifier,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    color: Color,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .background(color)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
+        Spacer(Modifier.height(3.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimary,
+        )
+    }
+}
+
+@Composable
 private fun TaskCard(
     task: TaskEntity,
     permissions: LocationPermissionState,
+    currentLocation: GeoPoint?,
     onClick: () -> Unit,
     onCompletedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .toggleable(
-                value = task.isCompleted,
-                onValueChange = { onClick() },
-                role = Role.Button,
-            ),
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
@@ -188,12 +588,16 @@ private fun TaskCard(
                 onCheckedChange = onCompletedChange,
             )
             Column(modifier = Modifier.weight(1f).padding(top = 2.dp, end = 6.dp)) {
-                Text(
-                    text = task.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = task.title,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null,
+                    )
+                    PriorityLabel(task.resolvedPriority)
+                }
                 if (task.description.isNotBlank()) {
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -204,11 +608,7 @@ private fun TaskCard(
                 }
                 task.dueAt?.let {
                     Spacer(Modifier.height(6.dp))
-                    Text(
-                        "Срок: ${formatDate(it)}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    DueDateLabel(it)
                 }
                 if (task.hasLocation) {
                     Spacer(Modifier.height(7.dp))
@@ -216,18 +616,32 @@ private fun TaskCard(
                         Icon(
                             Icons.Default.LocationOn,
                             contentDescription = null,
+                            modifier = Modifier.size(18.dp),
                             tint = if (task.geofenceEnabled) {
                                 MaterialTheme.colorScheme.primary
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
                         )
-                        Text(
-                            text = task.address?.takeIf(String::isNotBlank)
-                                ?: "${"%.5f".format(task.latitude)}, ${"%.5f".format(task.longitude)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 2,
-                        )
+                        Spacer(Modifier.size(4.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = task.address?.takeIf(String::isNotBlank)
+                                    ?: "${"%.5f".format(task.latitude)}, ${"%.5f".format(task.longitude)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 2,
+                            )
+                            val distance = distanceMeters(task, currentLocation)
+                            val detail = buildList {
+                                add(stringResource(R.string.task_radius, task.geofenceRadiusMeters.toInt()))
+                                if (distance != null) add(formatDistance(distance))
+                            }.joinToString(" · ")
+                            Text(
+                                detail,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
                 if (task.geofenceEnabled && !task.isCompleted) {
@@ -240,6 +654,46 @@ private fun TaskCard(
 }
 
 @Composable
+private fun PriorityLabel(priority: TaskPriority) {
+    val color = when (priority) {
+        TaskPriority.HIGH -> MaterialTheme.colorScheme.error
+        TaskPriority.NORMAL -> MaterialTheme.colorScheme.primary
+        TaskPriority.LOW -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Text(
+        text = stringResource(priority.labelRes()),
+        modifier = Modifier
+            .padding(start = 8.dp)
+            .background(color.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+            .padding(horizontal = 7.dp, vertical = 3.dp),
+        style = MaterialTheme.typography.labelSmall,
+        color = color,
+    )
+}
+
+@Composable
+private fun DueDateLabel(timestamp: Long) {
+    val zoneId = ZoneId.systemDefault()
+    val today = Instant.ofEpochMilli(System.currentTimeMillis()).atZone(zoneId).toLocalDate()
+    val dueDate = Instant.ofEpochMilli(timestamp).atZone(zoneId).toLocalDate()
+    val formattedDate = formatDate(timestamp)
+    val isOverdue = dueDate.isBefore(today)
+    Text(
+        text = when {
+            isOverdue -> stringResource(R.string.task_overdue, formattedDate)
+            dueDate == today -> stringResource(R.string.task_due_today)
+            else -> stringResource(R.string.task_due_date, formattedDate)
+        },
+        style = MaterialTheme.typography.labelMedium,
+        color = when {
+            isOverdue -> MaterialTheme.colorScheme.error
+            dueDate == today -> MaterialTheme.colorScheme.tertiary
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        },
+    )
+}
+
+@Composable
 private fun GeofenceStatusRow(
     task: TaskEntity,
     permissions: LocationPermissionState,
@@ -248,14 +702,6 @@ private fun GeofenceStatusRow(
         GeofenceStatus.MISSING_PERMISSION
     } else {
         task.resolvedGeofenceStatus
-    }
-    val label = when (status) {
-        GeofenceStatus.ACTIVE -> "Геонапоминание активно"
-        GeofenceStatus.PENDING -> "Геонапоминание настраивается"
-        GeofenceStatus.MISSING_PERMISSION -> "Геонапоминание: нет разрешения"
-        GeofenceStatus.LIMIT_REACHED -> "Геонапоминание: превышен лимит 100"
-        GeofenceStatus.ERROR -> "Геонапоминание: ошибка регистрации"
-        GeofenceStatus.DISABLED -> "Геонапоминание выключено"
     }
     val color = when (status) {
         GeofenceStatus.ACTIVE -> MaterialTheme.colorScheme.primary
@@ -274,11 +720,50 @@ private fun GeofenceStatusRow(
             tint = color,
         )
         Spacer(Modifier.size(5.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = color)
+        Text(
+            stringResource(status.labelRes()),
+            style = MaterialTheme.typography.labelMedium,
+            color = color,
+        )
     }
 }
 
-private fun formatDate(timestamp: Long): String = DateTimeFormatter
-    .ofPattern("dd.MM.yyyy")
-    .withZone(ZoneId.systemDefault())
-    .format(Instant.ofEpochMilli(timestamp))
+@Composable
+private fun formatDistance(distance: Double): String =
+    if (distance < 1_000) {
+        stringResource(R.string.task_distance_meters, distance.roundToInt())
+    } else {
+        stringResource(R.string.task_distance_kilometers, distance / 1_000)
+    }
+
+private fun formatDate(timestamp: Long): String =
+    DateFormat.getDateInstance(DateFormat.SHORT).format(java.util.Date(timestamp))
+
+private fun TaskQuickFilter.labelRes(): Int = when (this) {
+    TaskQuickFilter.OVERDUE -> R.string.filter_overdue
+    TaskQuickFilter.TODAY -> R.string.filter_today
+    TaskQuickFilter.GEOFENCE -> R.string.filter_geofence
+    TaskQuickFilter.WITHOUT_LOCATION -> R.string.filter_without_location
+}
+
+private fun TaskSort.labelRes(): Int = when (this) {
+    TaskSort.DUE_DATE -> R.string.sort_due_date
+    TaskSort.DISTANCE -> R.string.sort_distance
+    TaskSort.CREATED_AT -> R.string.sort_created_at
+    TaskSort.PRIORITY -> R.string.sort_priority
+}
+
+private fun TaskPriority.labelRes(): Int = when (this) {
+    TaskPriority.LOW -> R.string.priority_low
+    TaskPriority.NORMAL -> R.string.priority_normal
+    TaskPriority.HIGH -> R.string.priority_high
+}
+
+private fun GeofenceStatus.labelRes(): Int = when (this) {
+    GeofenceStatus.ACTIVE -> R.string.geofence_active
+    GeofenceStatus.PENDING -> R.string.geofence_pending
+    GeofenceStatus.MISSING_PERMISSION -> R.string.geofence_missing_permission
+    GeofenceStatus.LIMIT_REACHED -> R.string.geofence_limit_reached
+    GeofenceStatus.ERROR -> R.string.geofence_registration_error
+    GeofenceStatus.DISABLED -> R.string.geofence_disabled
+}

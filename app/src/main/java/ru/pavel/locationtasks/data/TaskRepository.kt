@@ -18,6 +18,7 @@ class TaskRepository @Inject constructor(
 
     suspend fun save(task: TaskEntity): Long {
         val now = System.currentTimeMillis()
+        val previousTask = task.id.takeIf { it > 0 }?.let { taskDao.getById(it) }
         val savedTask = if (task.id == 0L) {
             val newTask = task.copy(createdAt = now, updatedAt = now)
             val id = taskDao.insert(newTask)
@@ -29,12 +30,30 @@ class TaskRepository @Inject constructor(
         }
 
         if (savedTask.shouldMonitor) {
-            geofenceCoordinator.reconcileTask(savedTask.id)
+            if (previousTask == null || previousTask.geofenceConfigurationDiffersFrom(savedTask)) {
+                geofenceCoordinator.reconcileTask(savedTask.id)
+            } else {
+                geofenceCoordinator.reconcileAll()
+            }
         } else {
             geofenceCoordinator.deactivate(savedTask.id)
             geofenceCoordinator.reconcileAll()
         }
         return savedTask.id
+    }
+
+    suspend fun restore(task: TaskEntity) {
+        taskDao.insert(task)
+        if (task.shouldMonitor) {
+            geofenceCoordinator.reconcileTask(task.id)
+        } else {
+            geofenceCoordinator.reconcileAll()
+        }
+    }
+
+    suspend fun setDueAt(taskId: Long, dueAt: Long?) {
+        val task = taskDao.getById(taskId) ?: return
+        save(task.copy(dueAt = dueAt))
     }
 
     suspend fun setCompleted(task: TaskEntity, completed: Boolean) {
@@ -57,4 +76,11 @@ class TaskRepository @Inject constructor(
         geofenceCoordinator.deactivate(task.id)
         geofenceCoordinator.reconcileAll()
     }
+
+    private fun TaskEntity.geofenceConfigurationDiffersFrom(other: TaskEntity): Boolean =
+        latitude != other.latitude ||
+            longitude != other.longitude ||
+            geofenceRadiusMeters != other.geofenceRadiusMeters ||
+            geofenceEnabled != other.geofenceEnabled ||
+            isCompleted != other.isCompleted
 }

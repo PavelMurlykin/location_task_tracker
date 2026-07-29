@@ -34,7 +34,8 @@ class TaskRepositoryTest {
         assertEquals(7L, savedId)
         assertEquals(1, taskDao.snapshot().size)
         assertEquals("Новое название", taskDao.getById(7L)?.title)
-        assertEquals(listOf(7L), coordinator.reconciledTaskIds)
+        assertTrue(coordinator.reconciledTaskIds.isEmpty())
+        assertEquals(1, coordinator.reconcileAllCalls)
     }
 
     @Test
@@ -62,6 +63,33 @@ class TaskRepositoryTest {
 
         assertFalse(taskDao.getById(4L)?.isCompleted == true)
         assertEquals(listOf(4L), coordinator.reconciledTaskIds)
+    }
+
+    @Test
+    fun `restoring deleted task keeps its id and geofence`() = runBlocking {
+        val task = monitoredTask(id = 9L)
+        val taskDao = FakeTaskDao()
+        val coordinator = FakeGeofenceCoordinator()
+        val repository = TaskRepository(taskDao, coordinator)
+
+        repository.restore(task)
+
+        assertEquals(task, taskDao.getById(9L))
+        assertEquals(listOf(9L), coordinator.reconciledTaskIds)
+    }
+
+    @Test
+    fun `changing due date does not force geofence re-registration`() = runBlocking {
+        val task = monitoredTask(id = 10L)
+        val taskDao = FakeTaskDao(listOf(task))
+        val coordinator = FakeGeofenceCoordinator()
+        val repository = TaskRepository(taskDao, coordinator)
+
+        repository.setDueAt(10L, 123_456L)
+
+        assertEquals(123_456L, taskDao.getById(10L)?.dueAt)
+        assertTrue(coordinator.reconciledTaskIds.isEmpty())
+        assertEquals(1, coordinator.reconcileAllCalls)
     }
 
     private fun monitoredTask(

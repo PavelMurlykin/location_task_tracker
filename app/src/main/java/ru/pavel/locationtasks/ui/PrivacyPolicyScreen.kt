@@ -17,8 +17,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import ru.pavel.locationtasks.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,10 +28,13 @@ fun PrivacyPolicyScreen(onClose: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Конфиденциальность") },
+                title = { Text(stringResource(R.string.privacy_title)) },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.common_back),
+                        )
                     }
                 },
             )
@@ -43,24 +48,16 @@ fun PrivacyPolicyScreen(onClose: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            PolicyHeading("Какие данные используются")
+            PolicyHeading(stringResource(R.string.privacy_data_heading))
+            Text(stringResource(R.string.privacy_data_text))
+            PolicyHeading(stringResource(R.string.privacy_location_heading))
+            Text(stringResource(R.string.privacy_location_text))
+            PolicyHeading(stringResource(R.string.privacy_control_heading))
+            Text(stringResource(R.string.privacy_control_text))
+            PolicyHeading(stringResource(R.string.privacy_maps_heading))
+            Text(stringResource(R.string.privacy_maps_text))
             Text(
-                "Задачи, выбранные координаты и настройки хранятся локально на вашем устройстве. В текущей версии нет учётных записей и собственного сервера.",
-            )
-            PolicyHeading("Местоположение")
-            Text(
-                "С вашего разрешения приложение использует точное местоположение, в том числе в фоне, когда приложение закрыто или не используется. Это необходимо, чтобы Android определил вход в место задачи и показал напоминание. История перемещений не записывается.",
-            )
-            PolicyHeading("Управление данными")
-            Text(
-                "Геонапоминания можно отключать отдельно для каждой задачи. Разрешения можно отозвать в системных настройках. Удаление данных приложения удалит локальные задачи и настройки.",
-            )
-            PolicyHeading("Карты")
-            Text(
-                "При настроенном API-ключе экран выбора места использует Yandex MapKit SDK, работа которого регулируется политикой конфиденциальности Яндекса.",
-            )
-            Text(
-                "Обновлено 29 июля 2026 года",
+                stringResource(R.string.privacy_updated),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

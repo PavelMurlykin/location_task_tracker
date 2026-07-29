@@ -53,7 +53,6 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                             !canNotify -> logDao.record(
                                 task.triggerLog(
                                     outcome = GeofenceLogEntity.OUTCOME_COOLDOWN,
-                                    details = "Повторное уведомление временно подавлено",
                                     occurredAt = now,
                                 ),
                             )
@@ -71,7 +70,6 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                             else -> logDao.record(
                                 task.triggerLog(
                                     outcome = GeofenceLogEntity.OUTCOME_NOTIFICATIONS_BLOCKED,
-                                    details = "Нет разрешения на показ уведомлений",
                                     occurredAt = now,
                                 ),
                             )
