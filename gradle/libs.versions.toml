@@ -12,7 +12,7 @@ datastore = "1.1.7"
 hilt = "2.59.2"
 hiltNavigationCompose = "1.2.0"
 playServicesLocation = "21.3.0"
-mapsCompose = "6.12.0"
+yandexMapkit = "4.42.0-lite"
 coroutines = "1.10.2"
 junit = "4.13.2"
 androidxJunit = "1.2.1"
@@ -42,7 +42,7 @@ hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt"
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
 androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 google-play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
-google-maps-compose = { module = "com.google.maps.android:maps-compose", version.ref = "mapsCompose" }
+yandex-mapkit-lite = { module = "com.yandex.android:maps.mobile", version.ref = "yandexMapkit" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "coroutines" }
 junit = { module = "junit:junit", version.ref = "junit" }

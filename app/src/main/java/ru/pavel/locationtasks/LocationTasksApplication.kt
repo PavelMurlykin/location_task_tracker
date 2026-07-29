@@ -1,6 +1,7 @@
 package ru.pavel.locationtasks
 
 import android.app.Application
+import com.yandex.mapkit.MapKitFactory
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +22,10 @@ class LocationTasksApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        if (BuildConfig.MAPKIT_API_KEY_PRESENT) {
+            MapKitFactory.setApiKey(BuildConfig.MAPKIT_API_KEY)
+            MapKitFactory.initialize(this)
+        }
         notificationManager.createChannel()
         applicationScope.launch {
             geofenceManager.restore(taskDao.getTasksToMonitor())

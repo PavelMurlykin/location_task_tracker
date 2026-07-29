@@ -11,8 +11,8 @@ val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use(::load)
 }
-val mapsApiKey = localProperties.getProperty("MAPS_API_KEY")
-    ?: System.getenv("MAPS_API_KEY")
+val mapkitApiKey = localProperties.getProperty("MAPKIT_API_KEY")
+    ?: System.getenv("MAPKIT_API_KEY")
     ?: ""
 
 android {
@@ -27,8 +27,8 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
-        buildConfigField("boolean", "MAPS_API_KEY_PRESENT", mapsApiKey.isNotBlank().toString())
+        buildConfigField("String", "MAPKIT_API_KEY", "\"$mapkitApiKey\"")
+        buildConfigField("boolean", "MAPKIT_API_KEY_PRESENT", mapkitApiKey.isNotBlank().toString())
     }
 
     buildTypes {
@@ -88,7 +88,7 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
 
     implementation(libs.google.play.services.location)
-    implementation(libs.google.maps.compose)
+    implementation(libs.yandex.mapkit.lite)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
 

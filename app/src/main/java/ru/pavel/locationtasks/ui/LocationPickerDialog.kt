@@ -35,7 +35,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
@@ -52,16 +51,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.tasks.CancellationTokenSource
-import com.google.maps.android.compose.Circle
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.rememberCameraPositionState
-import com.google.maps.android.compose.rememberUpdatedMarkerState
 import ru.pavel.locationtasks.BuildConfig
 import ru.pavel.locationtasks.location.ResolvedLocation
 
@@ -109,10 +99,6 @@ fun LocationPickerDialog(
         }
     }
 
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(LatLng(latitude, longitude), 14f)
-    }
-
     fun applyResolvedLocation(result: ResolvedLocation) {
         latitude = result.latitude
         longitude = result.longitude
@@ -120,15 +106,6 @@ fun LocationPickerDialog(
         longitudeText = result.longitude.toString()
         address = result.address
         errorMessage = null
-    }
-
-    LaunchedEffect(latitude, longitude) {
-        if (BuildConfig.MAPS_API_KEY_PRESENT) {
-            cameraPositionState.animate(
-                CameraUpdateFactory.newLatLng(LatLng(latitude, longitude)),
-                400,
-            )
-        }
     }
 
     Dialog(
@@ -189,35 +166,25 @@ fun LocationPickerDialog(
                         }
                     }
 
-                    if (BuildConfig.MAPS_API_KEY_PRESENT) {
+                    if (BuildConfig.MAPKIT_API_KEY_PRESENT) {
                         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                            GoogleMap(
+                            YandexLocationMap(
                                 modifier = Modifier.fillMaxSize(),
-                                cameraPositionState = cameraPositionState,
-                                properties = MapProperties(isMyLocationEnabled = hasFinePermission),
-                                onMapLongClick = { point ->
-                                    latitude = point.latitude
-                                    longitude = point.longitude
-                                    latitudeText = point.latitude.toString()
-                                    longitudeText = point.longitude.toString()
-                                    onReverse(point.latitude, point.longitude) { resolved ->
+                                latitude = latitude,
+                                longitude = longitude,
+                                radius = radius,
+                                showUserLocation = hasFinePermission,
+                                primaryColor = MaterialTheme.colorScheme.primary,
+                                onLongClick = { selectedLatitude, selectedLongitude ->
+                                    latitude = selectedLatitude
+                                    longitude = selectedLongitude
+                                    latitudeText = selectedLatitude.toString()
+                                    longitudeText = selectedLongitude.toString()
+                                    onReverse(selectedLatitude, selectedLongitude) { resolved ->
                                         address = resolved.orEmpty()
                                     }
                                 },
-                            ) {
-                                val point = LatLng(latitude, longitude)
-                                Marker(
-                                    state = rememberUpdatedMarkerState(point),
-                                    title = address.ifBlank { "Место задачи" },
-                                )
-                                Circle(
-                                    center = point,
-                                    radius = radius.toDouble(),
-                                    fillColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                                    strokeColor = MaterialTheme.colorScheme.primary,
-                                    strokeWidth = 2f,
-                                )
-                            }
+                            )
                         }
                         Text(
                             "Нажмите и удерживайте карту, чтобы поставить метку",
@@ -233,7 +200,7 @@ fun LocationPickerDialog(
                                 Icon(Icons.Default.Map, contentDescription = null)
                                 Spacer(Modifier.size(10.dp))
                                 Text(
-                                    "Для карты добавьте MAPS_API_KEY в local.properties. Координаты можно указать вручную или получить с устройства.",
+                                    "Для карты добавьте MAPKIT_API_KEY в local.properties. Координаты можно указать вручную или получить с устройства.",
                                     style = MaterialTheme.typography.bodyMedium,
                                 )
                             }

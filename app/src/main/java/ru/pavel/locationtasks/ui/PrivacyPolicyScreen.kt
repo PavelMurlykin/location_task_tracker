@@ -57,10 +57,10 @@ fun PrivacyPolicyScreen(onClose: () -> Unit) {
             )
             PolicyHeading("Карты")
             Text(
-                "При настроенном API-ключе экран выбора места использует Google Maps SDK for Android, работа которого регулируется политикой конфиденциальности Google.",
+                "При настроенном API-ключе экран выбора места использует Yandex MapKit SDK, работа которого регулируется политикой конфиденциальности Яндекса.",
             )
             Text(
-                "Обновлено 15 июля 2026 года",
+                "Обновлено 29 июля 2026 года",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
