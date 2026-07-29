@@ -67,7 +67,17 @@ fun LocationTasksApp(
                 },
             ),
         ) {
-            TaskEditorScreen(onClose = navController::popBackStack)
+            TaskEditorScreen(
+                onClose = navController::popBackStack,
+                onOpenTask = { taskId ->
+                    val currentDestinationId = navController.currentDestination?.id
+                    navController.navigate(Routes.task(taskId)) {
+                        currentDestinationId?.let {
+                            popUpTo(it) { inclusive = true }
+                        }
+                    }
+                },
+            )
         }
         composable(Routes.SETTINGS) {
             SettingsScreen(

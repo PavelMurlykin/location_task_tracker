@@ -15,11 +15,17 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ru.pavel.locationtasks.data.PlaceEntity
 import ru.pavel.locationtasks.data.PlaceRepository
+import ru.pavel.locationtasks.data.ChecklistCodec
+import ru.pavel.locationtasks.data.ChecklistItem
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.data.TaskRepository
 import ru.pavel.locationtasks.data.GeofenceStatus
 import ru.pavel.locationtasks.data.GeofenceTransitionMode
 import ru.pavel.locationtasks.data.TaskPriority
+import ru.pavel.locationtasks.data.TaskCategory
+import ru.pavel.locationtasks.data.TaskRecurrence
+import ru.pavel.locationtasks.data.encodeTags
+import ru.pavel.locationtasks.data.parseTags
 import ru.pavel.locationtasks.R
 import ru.pavel.locationtasks.location.LocationResolver
 import ru.pavel.locationtasks.location.ResolvedLocation
@@ -37,7 +43,12 @@ data class TaskEditorState(
     val description: String = "",
     val dueAt: Long? = null,
     val priority: TaskPriority = TaskPriority.NORMAL,
+    val category: TaskCategory = TaskCategory.NONE,
+    val tagsInput: String = "",
+    val checklist: List<ChecklistItem> = emptyList(),
+    val recurrence: TaskRecurrence = TaskRecurrence.NONE,
     val isCompleted: Boolean = false,
+    val isArchived: Boolean = false,
     val latitude: Double? = null,
     val longitude: Double? = null,
     val address: String = "",
@@ -59,6 +70,7 @@ data class TaskEditorState(
 sealed interface EditorEvent {
     data object Saved : EditorEvent
     data object Deleted : EditorEvent
+    data class Duplicated(val taskId: Long) : EditorEvent
 }
 
 @HiltViewModel
@@ -100,7 +112,12 @@ class TaskEditorViewModel @Inject constructor(
                     description = task.description,
                     dueAt = task.dueAt,
                     priority = task.resolvedPriority,
+                    category = task.resolvedCategory,
+                    tagsInput = task.tagNames.joinToString(", "),
+                    checklist = task.checklistItems,
+                    recurrence = task.resolvedRecurrence,
                     isCompleted = task.isCompleted,
+                    isArchived = task.isArchived,
                     latitude = task.latitude,
                     longitude = task.longitude,
                     address = task.address.orEmpty(),
@@ -156,6 +173,24 @@ class TaskEditorViewModel @Inject constructor(
         copy(dueAt = date.atTime(time).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
     }
     fun setPriority(value: TaskPriority) = update { copy(priority = value) }
+    fun setCategory(value: TaskCategory) = update { copy(category = value) }
+    fun setTagsInput(value: String) = update { copy(tagsInput = value) }
+    fun setRecurrence(value: TaskRecurrence) = update { copy(recurrence = value) }
+    fun addChecklistItem(title: String) {
+        val normalized = title.trim()
+        if (normalized.isEmpty()) return
+        update { copy(checklist = checklist + ChecklistItem(title = normalized)) }
+    }
+    fun setChecklistItemCompleted(id: String, completed: Boolean) = update {
+        copy(
+            checklist = checklist.map {
+                if (it.id == id) it.copy(isCompleted = completed) else it
+            },
+        )
+    }
+    fun removeChecklistItem(id: String) = update {
+        copy(checklist = checklist.filterNot { it.id == id })
+    }
     fun setCompleted(value: Boolean) = update { copy(isCompleted = value) }
     fun setTransitionMode(value: GeofenceTransitionMode) =
         update { copy(transitionMode = value) }
@@ -261,40 +296,49 @@ class TaskEditorViewModel @Inject constructor(
                     task.notificationCooldownMinutes != current.notificationCooldownMinutes ||
                     task.allowedDaysMask != current.allowedDaysMask ||
                     task.reminderWindowStartMinutes != current.reminderWindowStartMinutes ||
-                    task.reminderWindowEndMinutes != current.reminderWindowEndMinutes
+                    task.reminderWindowEndMinutes != current.reminderWindowEndMinutes ||
+                    task.resolvedRecurrence != current.recurrence
             } ?: true
-            repository.save(
-                base.copy(
-                    title = current.title.trim(),
-                    description = current.description.trim(),
-                    dueAt = current.dueAt,
-                    priority = current.priority.name,
-                    isCompleted = current.isCompleted,
-                    latitude = current.latitude,
-                    longitude = current.longitude,
-                    address = current.address.trim().takeIf(String::isNotEmpty),
-                    geofenceRadiusMeters = current.radiusMeters,
-                    geofenceEnabled = current.geofenceEnabled,
-                    geofenceTransitionMode = current.transitionMode.name,
-                    notificationCooldownMinutes = current.notificationCooldownMinutes,
-                    allowedDaysMask = current.allowedDaysMask,
-                    reminderWindowStartMinutes = current.reminderWindowStartMinutes,
-                    reminderWindowEndMinutes = current.reminderWindowEndMinutes,
-                    snoozedUntil = if (reminderChanged) null else base.snoozedUntil,
-                    skipUntilNextVisit =
-                        if (reminderChanged) false else base.skipUntilNextVisit,
-                    lastNotifiedAt = if (reminderChanged) null else base.lastNotifiedAt,
-                    lastNotifiedTransition =
-                        if (reminderChanged) null else base.lastNotifiedTransition,
-                    geofenceStatus = when {
-                        !current.geofenceEnabled -> GeofenceStatus.DISABLED.name
-                        geofenceChanged -> GeofenceStatus.PENDING.name
-                        else -> base.geofenceStatus
-                    },
-                    geofenceStatusDetails = if (geofenceChanged) null else base.geofenceStatusDetails,
-                    geofenceRegisteredAt = if (geofenceChanged) null else base.geofenceRegisteredAt,
-                ),
+            val shouldAdvanceRecurrence = current.isCompleted &&
+                current.recurrence != TaskRecurrence.NONE
+            val taskToSave = base.copy(
+                title = current.title.trim(),
+                description = current.description.trim(),
+                dueAt = current.dueAt,
+                priority = current.priority.name,
+                category = current.category.name,
+                tags = encodeTags(parseTags(current.tagsInput)),
+                checklistData = ChecklistCodec.encode(current.checklist),
+                recurrence = current.recurrence.name,
+                isCompleted = current.isCompleted && !shouldAdvanceRecurrence,
+                latitude = current.latitude,
+                longitude = current.longitude,
+                address = current.address.trim().takeIf(String::isNotEmpty),
+                geofenceRadiusMeters = current.radiusMeters,
+                geofenceEnabled = current.geofenceEnabled,
+                geofenceTransitionMode = current.transitionMode.name,
+                notificationCooldownMinutes = current.notificationCooldownMinutes,
+                allowedDaysMask = current.allowedDaysMask,
+                reminderWindowStartMinutes = current.reminderWindowStartMinutes,
+                reminderWindowEndMinutes = current.reminderWindowEndMinutes,
+                snoozedUntil = if (reminderChanged) null else base.snoozedUntil,
+                skipUntilNextVisit =
+                    if (reminderChanged) false else base.skipUntilNextVisit,
+                lastNotifiedAt = if (reminderChanged) null else base.lastNotifiedAt,
+                lastNotifiedTransition =
+                    if (reminderChanged) null else base.lastNotifiedTransition,
+                geofenceStatus = when {
+                    !current.geofenceEnabled -> GeofenceStatus.DISABLED.name
+                    geofenceChanged -> GeofenceStatus.PENDING.name
+                    else -> base.geofenceStatus
+                },
+                geofenceStatusDetails = if (geofenceChanged) null else base.geofenceStatusDetails,
+                geofenceRegisteredAt = if (geofenceChanged) null else base.geofenceRegisteredAt,
             )
+            val savedTaskId = repository.save(taskToSave)
+            if (shouldAdvanceRecurrence) {
+                repository.setCompleted(taskToSave.copy(id = savedTaskId), completed = true)
+            }
             if (current.hasLocation) {
                 placeRepository.recordUsed(
                     address = current.address,
@@ -312,6 +356,16 @@ class TaskEditorViewModel @Inject constructor(
         viewModelScope.launch {
             repository.delete(task)
             _events.send(EditorEvent.Deleted)
+        }
+    }
+
+    fun duplicate() {
+        val task = originalTask ?: return
+        if (_state.value.isSaving) return
+        viewModelScope.launch {
+            update { copy(isSaving = true) }
+            val duplicatedTaskId = repository.duplicate(task)
+            _events.send(EditorEvent.Duplicated(duplicatedTaskId))
         }
     }
 

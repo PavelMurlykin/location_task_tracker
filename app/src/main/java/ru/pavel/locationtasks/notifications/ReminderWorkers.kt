@@ -28,7 +28,7 @@ class DueReminderWorker(
         if (taskId <= 0) return Result.success()
         val dependencies = dependencies()
         val task = dependencies.taskDao().getById(taskId) ?: return Result.success()
-        if (task.isCompleted || task.dueAt == null || task.geofenceEnabled) {
+        if (task.isCompleted || task.isArchived || task.dueAt == null || task.geofenceEnabled) {
             return Result.success()
         }
         if (task.lastNotifiedTransition == ReminderKind.DUE.name &&

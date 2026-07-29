@@ -14,6 +14,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -40,6 +42,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -51,6 +54,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -94,8 +98,10 @@ import kotlinx.coroutines.launch
 import ru.pavel.locationtasks.R
 import ru.pavel.locationtasks.data.GeofenceStatus
 import ru.pavel.locationtasks.data.PlaceEntity
+import ru.pavel.locationtasks.data.TaskCategory
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.data.TaskPriority
+import ru.pavel.locationtasks.data.TaskRecurrence
 import ru.pavel.locationtasks.location.LocationPermissionState
 import java.text.DateFormat
 import java.time.Instant
@@ -202,6 +208,14 @@ fun TaskListScreen(
             currentLocation = currentLocation,
         )
     }
+    val availableCategories = remember(tasks) {
+        tasks.asSequence()
+            .map(TaskEntity::resolvedCategory)
+            .filter { it != TaskCategory.NONE }
+            .distinct()
+            .sortedBy { it.ordinal }
+            .toList()
+    }
     val selectSort: (TaskSort) -> Unit = { sort ->
         criteria = criteria.copy(sort = sort)
         sortMenuExpanded = false
@@ -268,9 +282,15 @@ fun TaskListScreen(
             )
             SectionSelector(
                 selected = criteria.section,
-                activeCount = tasks.count { !it.isCompleted },
-                completedCount = tasks.count(TaskEntity::isCompleted),
+                activeCount = tasks.count { !it.isCompleted && !it.isArchived },
+                completedCount = tasks.count { it.isCompleted && !it.isArchived },
+                archivedCount = tasks.count(TaskEntity::isArchived),
                 onSelected = { criteria = criteria.copy(section = it) },
+            )
+            CategorySelector(
+                categories = availableCategories,
+                selected = criteria.category,
+                onSelected = { criteria = criteria.copy(category = it) },
             )
             FilterAndSortRow(
                 selectedFilter = criteria.quickFilter,
@@ -282,7 +302,9 @@ fun TaskListScreen(
             if (visibleTasks.isEmpty()) {
                 EmptyTasks(
                     section = criteria.section,
-                    hasCriteria = criteria.query.isNotBlank() || criteria.quickFilter != null,
+                    hasCriteria = criteria.query.isNotBlank() ||
+                        criteria.quickFilter != null ||
+                        criteria.category != null,
                     modifier = Modifier.weight(1f),
                 )
             } else {
@@ -304,6 +326,7 @@ fun TaskListScreen(
                             onClick = { onOpenTask(task.id) },
                             onCompletedChange = { viewModel.setCompleted(task, it) },
                             onSnooze = { viewModel.snooze(task) },
+                            onArchivedChange = { viewModel.setArchived(task, it) },
                             onDelete = { viewModel.delete(task) },
                         )
                     }
@@ -498,10 +521,14 @@ private fun SectionSelector(
     selected: TaskSection,
     activeCount: Int,
     completedCount: Int,
+    archivedCount: Int,
     onSelected: (TaskSection) -> Unit,
 ) {
     Row(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         FilterChip(
@@ -514,6 +541,40 @@ private fun SectionSelector(
             onClick = { onSelected(TaskSection.COMPLETED) },
             label = { Text(stringResource(R.string.task_section_completed, completedCount)) },
         )
+        FilterChip(
+            selected = selected == TaskSection.ARCHIVED,
+            onClick = { onSelected(TaskSection.ARCHIVED) },
+            label = { Text(stringResource(R.string.task_section_archived, archivedCount)) },
+        )
+    }
+}
+
+@Composable
+private fun CategorySelector(
+    categories: List<TaskCategory>,
+    selected: TaskCategory?,
+    onSelected: (TaskCategory?) -> Unit,
+) {
+    if (categories.isEmpty()) return
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChip(
+            selected = selected == null,
+            onClick = { onSelected(null) },
+            label = { Text(stringResource(R.string.category_all)) },
+        )
+        categories.forEach { category ->
+            FilterChip(
+                selected = selected == category,
+                onClick = { onSelected(category) },
+                label = { Text(stringResource(category.labelRes())) },
+            )
+        }
     }
 }
 
@@ -589,7 +650,9 @@ private fun EmptyTasks(
                 text = when {
                     hasCriteria -> stringResource(R.string.empty_filtered_tasks)
                     section == TaskSection.ACTIVE -> stringResource(R.string.empty_active_tasks)
-                    else -> stringResource(R.string.empty_completed_tasks)
+                    section == TaskSection.COMPLETED ->
+                        stringResource(R.string.empty_completed_tasks)
+                    else -> stringResource(R.string.empty_archived_tasks)
                 },
                 style = MaterialTheme.typography.titleMedium,
             )
@@ -613,11 +676,12 @@ private fun SwipeActionTaskCard(
     onClick: () -> Unit,
     onCompletedChange: (Boolean) -> Unit,
     onSnooze: () -> Unit,
+    onArchivedChange: (Boolean) -> Unit,
     onDelete: () -> Unit,
 ) {
     val density = LocalDensity.current
     val leftActionWidth = 84.dp
-    val rightActionWidth = if (task.isCompleted) 84.dp else 168.dp
+    val rightActionWidth = if (task.isArchived) 84.dp else 168.dp
     val maxRightPx = with(density) { leftActionWidth.toPx() }
     val maxLeftPx = with(density) { -rightActionWidth.toPx() }
     val settleThresholdPx = with(density) { 36.dp.toPx() }
@@ -637,20 +701,24 @@ private fun SwipeActionTaskCard(
                 modifier = Modifier
                     .width(leftActionWidth)
                     .fillMaxHeight(),
-                label = if (task.isCompleted) {
-                    stringResource(R.string.swipe_reopen)
-                } else {
-                    stringResource(R.string.swipe_complete)
+                label = when {
+                    task.isArchived -> stringResource(R.string.swipe_unarchive)
+                    task.isCompleted -> stringResource(R.string.swipe_reopen)
+                    else -> stringResource(R.string.swipe_complete)
                 },
-                icon = Icons.Default.Check,
+                icon = if (task.isArchived) Icons.Default.Unarchive else Icons.Default.Check,
                 color = MaterialTheme.colorScheme.primary,
                 onClick = {
                     offsetX = 0f
-                    onCompletedChange(!task.isCompleted)
+                    if (task.isArchived) {
+                        onArchivedChange(false)
+                    } else {
+                        onCompletedChange(!task.isCompleted)
+                    }
                 },
             )
             Spacer(Modifier.weight(1f))
-            if (!task.isCompleted) {
+            if (!task.isCompleted && !task.isArchived) {
                 SwipeAction(
                     modifier = Modifier.width(84.dp).fillMaxHeight(),
                     label = stringResource(R.string.swipe_snooze),
@@ -659,6 +727,17 @@ private fun SwipeActionTaskCard(
                     onClick = {
                         offsetX = 0f
                         onSnooze()
+                    },
+                )
+            } else if (task.isCompleted && !task.isArchived) {
+                SwipeAction(
+                    modifier = Modifier.width(84.dp).fillMaxHeight(),
+                    label = stringResource(R.string.swipe_archive),
+                    icon = Icons.Default.Archive,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    onClick = {
+                        offsetX = 0f
+                        onArchivedChange(true)
                     },
                 )
             }
@@ -746,10 +825,19 @@ private fun TaskCard(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
             verticalAlignment = Alignment.Top,
         ) {
-            Checkbox(
-                checked = task.isCompleted,
-                onCheckedChange = onCompletedChange,
-            )
+            if (task.isArchived) {
+                Icon(
+                    Icons.Default.Archive,
+                    contentDescription = null,
+                    modifier = Modifier.padding(12.dp).size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Checkbox(
+                    checked = task.isCompleted,
+                    onCheckedChange = onCompletedChange,
+                )
+            }
             Column(modifier = Modifier.weight(1f).padding(top = 2.dp, end = 6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -768,6 +856,55 @@ private fun TaskCard(
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 2,
                     )
+                }
+                val checklist = task.checklistItems
+                if (checklist.isNotEmpty()) {
+                    val completedItems = checklist.count { it.isCompleted }
+                    Spacer(Modifier.height(7.dp))
+                    LinearProgressIndicator(
+                        progress = { completedItems.toFloat() / checklist.size },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        stringResource(
+                            R.string.checklist_progress,
+                            completedItems,
+                            checklist.size,
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                val organizationLabels = buildList {
+                    if (task.resolvedCategory != TaskCategory.NONE) {
+                        add(stringResource(task.resolvedCategory.labelRes()))
+                    }
+                    task.tagNames.forEach { add("#$it") }
+                    if (task.resolvedRecurrence != TaskRecurrence.NONE) {
+                        add(stringResource(task.resolvedRecurrence.labelRes()))
+                    }
+                }
+                if (organizationLabels.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        organizationLabels.forEach { label ->
+                            Text(
+                                label,
+                                modifier = Modifier
+                                    .background(
+                                        MaterialTheme.colorScheme.secondaryContainer,
+                                        RoundedCornerShape(8.dp),
+                                    )
+                                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
+                    }
                 }
                 task.dueAt?.let {
                     Spacer(Modifier.height(6.dp))
@@ -920,6 +1057,20 @@ private fun TaskPriority.labelRes(): Int = when (this) {
     TaskPriority.LOW -> R.string.priority_low
     TaskPriority.NORMAL -> R.string.priority_normal
     TaskPriority.HIGH -> R.string.priority_high
+}
+
+private fun TaskCategory.labelRes(): Int = when (this) {
+    TaskCategory.NONE -> R.string.category_none
+    TaskCategory.SHOPPING -> R.string.category_shopping
+    TaskCategory.WORK -> R.string.category_work
+    TaskCategory.HOME -> R.string.category_home
+}
+
+private fun TaskRecurrence.labelRes(): Int = when (this) {
+    TaskRecurrence.NONE -> R.string.recurrence_none
+    TaskRecurrence.DAILY -> R.string.recurrence_daily
+    TaskRecurrence.WEEKLY -> R.string.recurrence_weekly
+    TaskRecurrence.MONTHLY -> R.string.recurrence_monthly
 }
 
 private fun GeofenceStatus.labelRes(): Int = when (this) {

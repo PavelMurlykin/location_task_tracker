@@ -8,6 +8,9 @@ import org.junit.Test
 import ru.pavel.locationtasks.testing.FakeGeofenceCoordinator
 import ru.pavel.locationtasks.testing.FakeTaskDao
 import ru.pavel.locationtasks.testing.FakeReminderWorkScheduler
+import ru.pavel.locationtasks.data.ChecklistCodec
+import ru.pavel.locationtasks.data.ChecklistItem
+import ru.pavel.locationtasks.data.TaskRecurrence
 
 class TaskRepositoryTest {
     @Test
@@ -109,6 +112,76 @@ class TaskRepositoryTest {
 
         assertEquals(id, scheduler.syncedTasks.single().id)
         assertEquals(123_456L, scheduler.syncedTasks.single().dueAt)
+    }
+
+    @Test
+    fun `completing recurring task advances due date and resets checklist`() = runBlocking {
+        val dueAt = System.currentTimeMillis() + 86_400_000L
+        val task = TaskEntity(
+            id = 20,
+            title = "Полить цветы",
+            dueAt = dueAt,
+            recurrence = TaskRecurrence.DAILY.name,
+            checklistData = ChecklistCodec.encode(
+                listOf(ChecklistItem(title = "Проверить землю", isCompleted = true)),
+            ),
+        )
+        val taskDao = FakeTaskDao(listOf(task))
+        val repository = TaskRepository(
+            taskDao,
+            FakeGeofenceCoordinator(),
+            FakeReminderWorkScheduler(),
+        )
+
+        val outcome = repository.setCompleted(task, true)
+        val updated = requireNotNull(taskDao.getById(task.id))
+
+        assertEquals(TaskCompletionOutcome.RESCHEDULED, outcome)
+        assertFalse(updated.isCompleted)
+        assertEquals(dueAt + 86_400_000L, updated.dueAt)
+        assertFalse(updated.checklistItems.single().isCompleted)
+    }
+
+    @Test
+    fun `archiving task disables its reminders`() = runBlocking {
+        val task = monitoredTask(id = 21L).copy(isCompleted = true)
+        val taskDao = FakeTaskDao(listOf(task))
+        val coordinator = FakeGeofenceCoordinator()
+        val scheduler = FakeReminderWorkScheduler()
+        val repository = TaskRepository(taskDao, coordinator, scheduler)
+
+        repository.setArchived(task, true)
+
+        assertTrue(taskDao.getById(task.id)?.isArchived == true)
+        assertEquals(listOf(task.id), coordinator.deactivatedTaskIds)
+        assertTrue(scheduler.syncedTasks.single().isArchived)
+    }
+
+    @Test
+    fun `duplicating task creates active copy and resets checklist`() = runBlocking {
+        val task = TaskEntity(
+            id = 22,
+            title = "Собрать документы",
+            isCompleted = true,
+            isArchived = true,
+            checklistData = ChecklistCodec.encode(
+                listOf(ChecklistItem(title = "Паспорт", isCompleted = true)),
+            ),
+        )
+        val taskDao = FakeTaskDao(listOf(task))
+        val repository = TaskRepository(
+            taskDao,
+            FakeGeofenceCoordinator(),
+            FakeReminderWorkScheduler(),
+        )
+
+        val duplicateId = repository.duplicate(task)
+        val duplicate = requireNotNull(taskDao.getById(duplicateId))
+
+        assertFalse(duplicate.isCompleted)
+        assertFalse(duplicate.isArchived)
+        assertFalse(duplicate.checklistItems.single().isCompleted)
+        assertEquals(2, taskDao.snapshot().size)
     }
 
     private fun monitoredTask(

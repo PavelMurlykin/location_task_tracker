@@ -1,6 +1,7 @@
 package ru.pavel.locationtasks.ui
 
 import ru.pavel.locationtasks.data.TaskEntity
+import ru.pavel.locationtasks.data.TaskCategory
 import java.time.Instant
 import java.time.ZoneId
 import kotlin.math.atan2
@@ -11,6 +12,7 @@ import kotlin.math.sqrt
 enum class TaskSection {
     ACTIVE,
     COMPLETED,
+    ARCHIVED,
 }
 
 enum class TaskQuickFilter {
@@ -36,6 +38,7 @@ data class TaskListCriteria(
     val section: TaskSection = TaskSection.ACTIVE,
     val query: String = "",
     val quickFilter: TaskQuickFilter? = null,
+    val category: TaskCategory? = null,
     val sort: TaskSort = TaskSort.DUE_DATE,
 )
 
@@ -51,15 +54,20 @@ fun filterAndSortTasks(
     val filtered = tasks.asSequence()
         .filter { task ->
             when (criteria.section) {
-                TaskSection.ACTIVE -> !task.isCompleted
-                TaskSection.COMPLETED -> task.isCompleted
+                TaskSection.ACTIVE -> !task.isCompleted && !task.isArchived
+                TaskSection.COMPLETED -> task.isCompleted && !task.isArchived
+                TaskSection.ARCHIVED -> task.isArchived
             }
         }
         .filter { task ->
             normalizedQuery.isEmpty() ||
                 task.title.contains(normalizedQuery, ignoreCase = true) ||
                 task.description.contains(normalizedQuery, ignoreCase = true) ||
-                task.address.orEmpty().contains(normalizedQuery, ignoreCase = true)
+                task.address.orEmpty().contains(normalizedQuery, ignoreCase = true) ||
+                task.tagNames.any { it.contains(normalizedQuery, ignoreCase = true) }
+        }
+        .filter { task ->
+            criteria.category == null || task.resolvedCategory == criteria.category
         }
         .filter { task ->
             when (criteria.quickFilter) {

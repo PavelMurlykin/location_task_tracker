@@ -25,7 +25,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EditLocation
 import androidx.compose.material.icons.filled.LocationOff
@@ -34,6 +37,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -77,6 +81,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.pavel.locationtasks.data.GeofenceStatus
 import ru.pavel.locationtasks.data.GeofenceTransitionMode
 import ru.pavel.locationtasks.data.TaskPriority
+import ru.pavel.locationtasks.data.TaskCategory
+import ru.pavel.locationtasks.data.TaskRecurrence
 import ru.pavel.locationtasks.R
 import ru.pavel.locationtasks.location.BackgroundExecutionState
 import ru.pavel.locationtasks.location.LocationPermissionState
@@ -89,6 +95,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun TaskEditorScreen(
     onClose: () -> Unit,
+    onOpenTask: (Long) -> Unit,
     viewModel: TaskEditorViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -100,9 +107,17 @@ fun TaskEditorScreen(
     var showWindowEndPicker by remember { mutableStateOf(false) }
     var showLocationPicker by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var checklistDraft by remember { mutableStateOf("") }
 
     LaunchedEffect(viewModel) {
-        viewModel.events.collect { onClose() }
+        viewModel.events.collect { event ->
+            when (event) {
+                EditorEvent.Saved,
+                EditorEvent.Deleted,
+                -> onClose()
+                is EditorEvent.Duplicated -> onOpenTask(event.taskId)
+            }
+        }
     }
 
     Scaffold(
@@ -125,6 +140,15 @@ fun TaskEditorScreen(
                 },
                 actions = {
                     if (state.isExisting) {
+                        IconButton(
+                            onClick = viewModel::duplicate,
+                            enabled = !state.isSaving,
+                        ) {
+                            Icon(
+                                Icons.Default.ContentCopy,
+                                contentDescription = stringResource(R.string.duplicate_task),
+                            )
+                        }
                         IconButton(onClick = { showDeleteConfirmation = true }) {
                             Icon(
                                 Icons.Default.Delete,
@@ -195,6 +219,98 @@ fun TaskEditorScreen(
                                     ),
                                 )
                             },
+                        )
+                    }
+                }
+
+                Text(
+                    stringResource(R.string.category_label),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    TaskCategory.entries.forEach { category ->
+                        FilterChip(
+                            selected = state.category == category,
+                            onClick = { viewModel.setCategory(category) },
+                            label = { Text(stringResource(categoryLabel(category))) },
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = state.tagsInput,
+                    onValueChange = viewModel::setTagsInput,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.tags_label)) },
+                    supportingText = { Text(stringResource(R.string.tags_hint)) },
+                    singleLine = true,
+                )
+
+                Text(
+                    stringResource(R.string.checklist_title),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                state.checklist.forEach { item ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(
+                            checked = item.isCompleted,
+                            onCheckedChange = {
+                                viewModel.setChecklistItemCompleted(item.id, it)
+                            },
+                        )
+                        Text(
+                            item.title,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        IconButton(onClick = { viewModel.removeChecklistItem(item.id) }) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = stringResource(R.string.remove_checklist_item),
+                            )
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = checklistDraft,
+                    onValueChange = { checklistDraft = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.add_checklist_item)) },
+                    trailingIcon = {
+                        IconButton(
+                            onClick = {
+                                viewModel.addChecklistItem(checklistDraft)
+                                checklistDraft = ""
+                            },
+                            enabled = checklistDraft.isNotBlank(),
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = stringResource(R.string.add_checklist_item),
+                            )
+                        }
+                    },
+                    singleLine = true,
+                )
+
+                Text(
+                    stringResource(R.string.recurrence_label),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    TaskRecurrence.entries.forEach { recurrence ->
+                        FilterChip(
+                            selected = state.recurrence == recurrence,
+                            onClick = { viewModel.setRecurrence(recurrence) },
+                            label = { Text(stringResource(recurrenceLabel(recurrence))) },
                         )
                     }
                 }
@@ -451,7 +567,7 @@ fun TaskEditorScreen(
                     )
                 }
 
-                if (state.isExisting) {
+                if (state.isExisting && !state.isArchived) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -855,6 +971,20 @@ private fun dayShortLabel(day: DayOfWeek): Int = when (day) {
     DayOfWeek.FRIDAY -> R.string.day_fri
     DayOfWeek.SATURDAY -> R.string.day_sat
     DayOfWeek.SUNDAY -> R.string.day_sun
+}
+
+private fun categoryLabel(category: TaskCategory): Int = when (category) {
+    TaskCategory.NONE -> R.string.category_none
+    TaskCategory.SHOPPING -> R.string.category_shopping
+    TaskCategory.WORK -> R.string.category_work
+    TaskCategory.HOME -> R.string.category_home
+}
+
+private fun recurrenceLabel(recurrence: TaskRecurrence): Int = when (recurrence) {
+    TaskRecurrence.NONE -> R.string.recurrence_none
+    TaskRecurrence.DAILY -> R.string.recurrence_daily
+    TaskRecurrence.WEEKLY -> R.string.recurrence_weekly
+    TaskRecurrence.MONTHLY -> R.string.recurrence_monthly
 }
 
 private fun formatCoordinate(value: Double?): String =

@@ -36,6 +36,13 @@ class TaskEntityTest {
     }
 
     @Test
+    fun `archived task is not monitored`() {
+        val task = taskWithLocation(geofenceEnabled = true).copy(isArchived = true)
+
+        assertFalse(task.shouldMonitor)
+    }
+
+    @Test
     fun `transition mode can include entry exit or both`() {
         assertTrue(GeofenceTransitionMode.ENTER.includes(GeofenceTransition.ENTER))
         assertFalse(GeofenceTransitionMode.ENTER.includes(GeofenceTransition.EXIT))

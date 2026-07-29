@@ -16,6 +16,7 @@ import ru.pavel.locationtasks.data.PlaceEntity
 import ru.pavel.locationtasks.data.PlaceRepository
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.data.TaskRepository
+import ru.pavel.locationtasks.data.TaskCompletionOutcome
 import javax.inject.Inject
 
 @HiltViewModel
@@ -79,14 +80,40 @@ class TaskListViewModel @Inject constructor(
     fun setCompleted(task: TaskEntity, completed: Boolean) {
         if (task.isCompleted == completed) return
         viewModelScope.launch {
-            repository.setCompleted(task, completed)
-            val token = rememberUndo(UndoOperation.SetCompleted(task.id, task.isCompleted))
+            val outcome = repository.setCompleted(task, completed)
+            val token = rememberUndo(
+                if (outcome == TaskCompletionOutcome.RESCHEDULED) {
+                    UndoOperation.RestoreTask(task)
+                } else {
+                    UndoOperation.SetCompleted(task.id, task.isCompleted)
+                },
+            )
             _events.send(
                 TaskListEvent(
-                    messageRes = if (completed) {
-                        R.string.task_completed_message
+                    messageRes = when {
+                        outcome == TaskCompletionOutcome.RESCHEDULED ->
+                            R.string.task_recurrence_rescheduled_message
+                        completed -> R.string.task_completed_message
+                        else -> R.string.task_reopened_message
+                    },
+                    messageArgs = listOf(task.title),
+                    undoToken = token,
+                ),
+            )
+        }
+    }
+
+    fun setArchived(task: TaskEntity, archived: Boolean) {
+        if (task.isArchived == archived) return
+        viewModelScope.launch {
+            repository.setArchived(task, archived)
+            val token = rememberUndo(UndoOperation.SetArchived(task.id, task.isArchived))
+            _events.send(
+                TaskListEvent(
+                    messageRes = if (archived) {
+                        R.string.task_archived_message
                     } else {
-                        R.string.task_reopened_message
+                        R.string.task_unarchived_message
                     },
                     messageArgs = listOf(task.title),
                     undoToken = token,
@@ -129,10 +156,15 @@ class TaskListViewModel @Inject constructor(
         viewModelScope.launch {
             when (operation) {
                 is UndoOperation.RestoreDeleted -> repository.restore(operation.task)
+                is UndoOperation.RestoreTask -> repository.save(operation.task)
                 is UndoOperation.RestoreDueAt ->
                     repository.setDueAt(operation.taskId, operation.previousDueAt)
                 is UndoOperation.SetCompleted ->
                     repository.setCompleted(operation.taskId, operation.previousCompleted)
+                is UndoOperation.SetArchived ->
+                    repository.getById(operation.taskId)?.let {
+                        repository.setArchived(it, operation.previousArchived)
+                    }
             }
         }
     }
@@ -156,8 +188,10 @@ data class TaskListEvent(
 
 private sealed interface UndoOperation {
     data class RestoreDeleted(val task: TaskEntity) : UndoOperation
+    data class RestoreTask(val task: TaskEntity) : UndoOperation
     data class RestoreDueAt(val taskId: Long, val previousDueAt: Long?) : UndoOperation
     data class SetCompleted(val taskId: Long, val previousCompleted: Boolean) : UndoOperation
+    data class SetArchived(val taskId: Long, val previousArchived: Boolean) : UndoOperation
 }
 
 internal fun calculateSnoozedDueAt(

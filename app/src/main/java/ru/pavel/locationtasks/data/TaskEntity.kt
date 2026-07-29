@@ -13,7 +13,18 @@ data class TaskEntity(
     val dueAt: Long? = null,
     @ColumnInfo(defaultValue = "'NORMAL'")
     val priority: String = TaskPriority.NORMAL.name,
+    @ColumnInfo(defaultValue = "'NONE'")
+    val category: String = TaskCategory.NONE.name,
+    @ColumnInfo(defaultValue = "''")
+    val tags: String = "",
+    @ColumnInfo(defaultValue = "''")
+    val checklistData: String = "",
+    @ColumnInfo(defaultValue = "'NONE'")
+    val recurrence: String = TaskRecurrence.NONE.name,
     val isCompleted: Boolean = false,
+    @ColumnInfo(defaultValue = "0")
+    val isArchived: Boolean = false,
+    val archivedAt: Long? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
     val address: String? = null,
@@ -42,13 +53,25 @@ data class TaskEntity(
         get() = latitude != null && longitude != null
 
     val shouldMonitor: Boolean
-        get() = geofenceEnabled && hasLocation && !isCompleted
+        get() = geofenceEnabled && hasLocation && !isCompleted && !isArchived
 
     val resolvedGeofenceStatus: GeofenceStatus
         get() = GeofenceStatus.fromStorage(geofenceStatus)
 
     val resolvedPriority: TaskPriority
         get() = TaskPriority.fromStorage(priority)
+
+    val resolvedCategory: TaskCategory
+        get() = TaskCategory.fromStorage(category)
+
+    val resolvedRecurrence: TaskRecurrence
+        get() = TaskRecurrence.fromStorage(recurrence)
+
+    val checklistItems: List<ChecklistItem>
+        get() = ChecklistCodec.decode(checklistData)
+
+    val tagNames: List<String>
+        get() = decodeTags(tags)
 
     val resolvedTransitionMode: GeofenceTransitionMode
         get() = GeofenceTransitionMode.fromStorage(geofenceTransitionMode)

@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [TaskEntity::class, GeofenceLogEntity::class, PlaceEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -146,6 +146,27 @@ abstract class AppDatabase : RoomDatabase() {
                     GROUP BY latitude, longitude
                     """.trimIndent(),
                 )
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE tasks ADD COLUMN category TEXT NOT NULL DEFAULT 'NONE'",
+                )
+                db.execSQL(
+                    "ALTER TABLE tasks ADD COLUMN tags TEXT NOT NULL DEFAULT ''",
+                )
+                db.execSQL(
+                    "ALTER TABLE tasks ADD COLUMN checklistData TEXT NOT NULL DEFAULT ''",
+                )
+                db.execSQL(
+                    "ALTER TABLE tasks ADD COLUMN recurrence TEXT NOT NULL DEFAULT 'NONE'",
+                )
+                db.execSQL(
+                    "ALTER TABLE tasks ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0",
+                )
+                db.execSQL("ALTER TABLE tasks ADD COLUMN archivedAt INTEGER")
             }
         }
     }

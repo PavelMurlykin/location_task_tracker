@@ -39,7 +39,7 @@ class FakeTaskDao(
             .sortedBy(TaskEntity::id)
 
     override suspend fun getTasksWithDueReminders(): List<TaskEntity> =
-        tasks.value.filter { !it.isCompleted && it.dueAt != null }
+        tasks.value.filter { !it.isCompleted && !it.isArchived && it.dueAt != null }
 
     override suspend fun insert(task: TaskEntity): Long {
         val id = if (task.id == 0L) nextId++ else task.id

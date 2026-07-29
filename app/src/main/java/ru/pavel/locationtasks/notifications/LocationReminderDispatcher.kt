@@ -6,6 +6,7 @@ import ru.pavel.locationtasks.data.GeofenceLogEntity
 import ru.pavel.locationtasks.data.GeofenceTransition
 import ru.pavel.locationtasks.data.TaskDao
 import ru.pavel.locationtasks.data.TaskEntity
+import ru.pavel.locationtasks.data.TaskRecurrence
 import ru.pavel.locationtasks.data.UserPreferencesRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -41,6 +42,18 @@ class LocationReminderDispatcher @Inject constructor(
         }
 
         if (!task.resolvedTransitionMode.includes(transition)) return
+
+        val recurrenceDueAt = task.dueAt
+        if (task.resolvedRecurrence != TaskRecurrence.NONE &&
+            recurrenceDueAt != null &&
+            recurrenceDueAt > now
+        ) {
+            if (transition == GeofenceTransition.ENTER) {
+                reminderScheduler.scheduleLocationReminder(taskId, transition, recurrenceDueAt)
+            }
+            logDao.record(task.triggerLog(GeofenceLogEntity.OUTCOME_DEFERRED, transition, now))
+            return
+        }
 
         val snoozedUntil = task.snoozedUntil
         if (snoozedUntil != null && snoozedUntil > now) {

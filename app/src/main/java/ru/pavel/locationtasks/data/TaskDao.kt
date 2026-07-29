@@ -24,6 +24,7 @@ interface TaskDao {
         SELECT * FROM tasks
         WHERE geofenceEnabled = 1
           AND isCompleted = 0
+          AND isArchived = 0
           AND latitude IS NOT NULL
           AND longitude IS NOT NULL
         ORDER BY dueAt IS NULL, dueAt ASC, updatedAt DESC, id ASC
@@ -35,6 +36,7 @@ interface TaskDao {
         """
         SELECT * FROM tasks
         WHERE isCompleted = 0
+          AND isArchived = 0
           AND dueAt IS NOT NULL
         """,
     )

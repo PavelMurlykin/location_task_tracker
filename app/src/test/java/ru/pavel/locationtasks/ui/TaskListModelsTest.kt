@@ -3,7 +3,9 @@ package ru.pavel.locationtasks.ui
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import ru.pavel.locationtasks.data.TaskEntity
+import ru.pavel.locationtasks.data.TaskCategory
 import ru.pavel.locationtasks.data.TaskPriority
+import ru.pavel.locationtasks.data.encodeTags
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -117,6 +119,48 @@ class TaskListModelsTest {
         )
 
         assertEquals(listOf(2L), result.map(TaskEntity::id))
+    }
+
+    @Test
+    fun `archive section excludes active and completed tasks`() {
+        val tasks = listOf(
+            task(1),
+            task(2).copy(isCompleted = true),
+            task(3).copy(isCompleted = true, isArchived = true),
+        )
+
+        val result = filterAndSortTasks(
+            tasks = tasks,
+            criteria = TaskListCriteria(section = TaskSection.ARCHIVED),
+            currentLocation = null,
+            nowMillis = now,
+            zoneId = zoneId,
+        )
+
+        assertEquals(listOf(3L), result.map(TaskEntity::id))
+    }
+
+    @Test
+    fun `category filter and tag search organize tasks`() {
+        val tasks = listOf(
+            task(1).copy(
+                category = TaskCategory.SHOPPING.name,
+                tags = encodeTags(listOf("срочно")),
+            ),
+            task(2).copy(category = TaskCategory.WORK.name),
+        )
+
+        val byCategory = filterAndSortTasks(
+            tasks,
+            TaskListCriteria(category = TaskCategory.SHOPPING),
+            currentLocation = null,
+            nowMillis = now,
+            zoneId = zoneId,
+        )
+        val byTag = filtered(tasks, query = "СРОЧНО")
+
+        assertEquals(listOf(1L), byCategory.map(TaskEntity::id))
+        assertEquals(listOf(1L), byTag.map(TaskEntity::id))
     }
 
     @Test

@@ -38,7 +38,12 @@ class WorkManagerReminderScheduler @Inject constructor(
             task.lastNotifiedAt != null &&
             task.lastNotifiedAt >= (task.dueAt ?: Long.MAX_VALUE) &&
             task.snoozedUntil == null
-        if (task.isCompleted || task.dueAt == null || task.geofenceEnabled || alreadyDelivered) {
+        if (task.isCompleted ||
+            task.isArchived ||
+            task.dueAt == null ||
+            task.geofenceEnabled ||
+            alreadyDelivered
+        ) {
             cancelDueReminder(task.id)
             return
         }

@@ -22,6 +22,7 @@
     <string name="clear_search">Clear search</string>
     <string name="task_section_active">Active (%1$d)</string>
     <string name="task_section_completed">Completed (%1$d)</string>
+    <string name="task_section_archived">Archive (%1$d)</string>
     <string name="filter_all">All</string>
     <string name="filter_overdue">Overdue</string>
     <string name="filter_today">Today</string>
@@ -36,6 +37,7 @@
     <string name="current_location_unavailable">Current location is unavailable</string>
     <string name="empty_active_tasks">No active tasks yet</string>
     <string name="empty_completed_tasks">No completed tasks</string>
+    <string name="empty_archived_tasks">Archive is empty</string>
     <string name="empty_filtered_tasks">No tasks match the selected conditions</string>
     <string name="empty_active_tasks_hint">Add a task and optionally attach a location</string>
     <string name="task_due_date">Due: %1$s</string>
@@ -48,6 +50,24 @@
     <string name="priority_low">Low</string>
     <string name="priority_normal">Normal</string>
     <string name="priority_high">High</string>
+    <string name="category_label">Category</string>
+    <string name="category_all">All categories</string>
+    <string name="category_none">No category</string>
+    <string name="category_shopping">Shopping</string>
+    <string name="category_work">Work</string>
+    <string name="category_home">Home</string>
+    <string name="tags_label">Tags</string>
+    <string name="tags_hint">Comma-separated, for example: urgent, groceries</string>
+    <string name="checklist_title">Checklist</string>
+    <string name="add_checklist_item">Add item</string>
+    <string name="remove_checklist_item">Remove item</string>
+    <string name="checklist_progress">Checklist: %1$d/%2$d</string>
+    <string name="recurrence_label">Repeat</string>
+    <string name="recurrence_none">Do not repeat</string>
+    <string name="recurrence_daily">Every day</string>
+    <string name="recurrence_weekly">Every week</string>
+    <string name="recurrence_monthly">Every month</string>
+    <string name="duplicate_task">Duplicate task</string>
     <string name="geofence_active">Location reminder active</string>
     <string name="geofence_pending">Location reminder is being configured</string>
     <string name="geofence_missing_permission">Location reminder: permission required</string>
@@ -58,10 +78,15 @@
     <string name="swipe_reopen">Reopen</string>
     <string name="swipe_snooze">Snooze</string>
     <string name="swipe_delete">Delete</string>
+    <string name="swipe_archive">Archive</string>
+    <string name="swipe_unarchive">Restore</string>
     <string name="task_completed_message">“%1$s” completed</string>
     <string name="task_reopened_message">“%1$s” is active again</string>
     <string name="task_deleted_message">“%1$s” deleted</string>
     <string name="task_snoozed_message">“%1$s” snoozed for one day</string>
+    <string name="task_archived_message">“%1$s” moved to archive</string>
+    <string name="task_unarchived_message">“%1$s” restored from archive</string>
+    <string name="task_recurrence_rescheduled_message">The next occurrence of “%1$s” was scheduled</string>
 
     <string name="task_title_label">Title</string>
     <string name="task_description_label">Description</string>

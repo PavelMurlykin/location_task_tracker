@@ -22,6 +22,7 @@
     <string name="clear_search">Очистить поиск</string>
     <string name="task_section_active">Активные (%1$d)</string>
     <string name="task_section_completed">Выполненные (%1$d)</string>
+    <string name="task_section_archived">Архив (%1$d)</string>
     <string name="filter_all">Все</string>
     <string name="filter_overdue">Просроченные</string>
     <string name="filter_today">Сегодня</string>
@@ -36,6 +37,7 @@
     <string name="current_location_unavailable">Не удалось определить текущее местоположение</string>
     <string name="empty_active_tasks">Активных задач пока нет</string>
     <string name="empty_completed_tasks">Нет выполненных задач</string>
+    <string name="empty_archived_tasks">Архив пуст</string>
     <string name="empty_filtered_tasks">По выбранным условиям ничего не найдено</string>
     <string name="empty_active_tasks_hint">Добавьте задачу и при необходимости привяжите к ней место</string>
     <string name="task_due_date">Срок: %1$s</string>
@@ -48,6 +50,24 @@
     <string name="priority_low">Низкий</string>
     <string name="priority_normal">Обычный</string>
     <string name="priority_high">Высокий</string>
+    <string name="category_label">Категория</string>
+    <string name="category_all">Все категории</string>
+    <string name="category_none">Без категории</string>
+    <string name="category_shopping">Покупки</string>
+    <string name="category_work">Работа</string>
+    <string name="category_home">Дом</string>
+    <string name="tags_label">Теги</string>
+    <string name="tags_hint">Через запятую, например: срочно, продукты</string>
+    <string name="checklist_title">Чек-лист</string>
+    <string name="add_checklist_item">Добавить пункт</string>
+    <string name="remove_checklist_item">Удалить пункт</string>
+    <string name="checklist_progress">Чек-лист: %1$d/%2$d</string>
+    <string name="recurrence_label">Повторение</string>
+    <string name="recurrence_none">Не повторять</string>
+    <string name="recurrence_daily">Каждый день</string>
+    <string name="recurrence_weekly">Каждую неделю</string>
+    <string name="recurrence_monthly">Каждый месяц</string>
+    <string name="duplicate_task">Дублировать задачу</string>
     <string name="geofence_active">Геонапоминание активно</string>
     <string name="geofence_pending">Геонапоминание настраивается</string>
     <string name="geofence_missing_permission">Геонапоминание: нет разрешения</string>
@@ -58,10 +78,15 @@
     <string name="swipe_reopen">Вернуть</string>
     <string name="swipe_snooze">Отложить</string>
     <string name="swipe_delete">Удалить</string>
+    <string name="swipe_archive">В архив</string>
+    <string name="swipe_unarchive">Вернуть</string>
     <string name="task_completed_message">«%1$s» выполнена</string>
     <string name="task_reopened_message">«%1$s» снова активна</string>
     <string name="task_deleted_message">«%1$s» удалена</string>
     <string name="task_snoozed_message">«%1$s» отложена на день</string>
+    <string name="task_archived_message">Задача «%1$s» перемещена в архив</string>
+    <string name="task_unarchived_message">Задача «%1$s» возвращена из архива</string>
+    <string name="task_recurrence_rescheduled_message">Для задачи «%1$s» назначено следующее повторение</string>
 
     <string name="task_title_label">Название</string>
     <string name="task_description_label">Описание</string>
