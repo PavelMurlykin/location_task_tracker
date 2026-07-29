@@ -31,6 +31,15 @@ interface TaskDao {
     )
     suspend fun getTasksToMonitor(): List<TaskEntity>
 
+    @Query(
+        """
+        SELECT * FROM tasks
+        WHERE isCompleted = 0
+          AND dueAt IS NOT NULL
+        """,
+    )
+    suspend fun getTasksWithDueReminders(): List<TaskEntity>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(task: TaskEntity): Long
 
@@ -43,8 +52,39 @@ interface TaskDao {
     @Query("UPDATE tasks SET isCompleted = :completed, updatedAt = :updatedAt WHERE id = :id")
     suspend fun setCompleted(id: Long, completed: Boolean, updatedAt: Long)
 
-    @Query("UPDATE tasks SET lastNotifiedAt = :notifiedAt WHERE id = :id")
-    suspend fun setLastNotifiedAt(id: Long, notifiedAt: Long)
+    @Query(
+        """
+        UPDATE tasks
+        SET lastNotifiedAt = :notifiedAt,
+            lastNotifiedTransition = :transition
+        WHERE id = :id
+        """,
+    )
+    suspend fun setLastNotifiedAt(id: Long, notifiedAt: Long, transition: String?)
+
+    @Query(
+        """
+        UPDATE tasks
+        SET lastNotifiedAt = NULL,
+            lastNotifiedTransition = NULL
+        WHERE id = :id
+        """,
+    )
+    suspend fun clearLastNotified(id: Long)
+
+    @Query(
+        """
+        UPDATE tasks
+        SET snoozedUntil = :snoozedUntil,
+            skipUntilNextVisit = :skipUntilNextVisit
+        WHERE id = :id
+        """,
+    )
+    suspend fun setSnoozeState(
+        id: Long,
+        snoozedUntil: Long?,
+        skipUntilNextVisit: Boolean,
+    )
 
     @Query(
         """

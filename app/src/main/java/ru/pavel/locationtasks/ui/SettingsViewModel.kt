@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ru.pavel.locationtasks.data.GeofenceLogDao
 import ru.pavel.locationtasks.data.GeofenceLogEntity
+import ru.pavel.locationtasks.data.ReminderPreferences
 import ru.pavel.locationtasks.data.UserPreferencesRepository
 import ru.pavel.locationtasks.location.GeofenceCoordinator
 import javax.inject.Inject
@@ -21,10 +22,11 @@ class SettingsViewModel @Inject constructor(
     logDao: GeofenceLogDao,
     private val geofenceCoordinator: GeofenceCoordinator,
 ) : ViewModel() {
-    val cooldownHours: StateFlow<Int> = repository.notificationCooldownHours.stateIn(
+    val reminderPreferences: StateFlow<ReminderPreferences> =
+        repository.reminderPreferences.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
-        UserPreferencesRepository.DEFAULT_COOLDOWN_HOURS,
+        ReminderPreferences(),
     )
     val geofenceLogs: StateFlow<List<GeofenceLogEntity>> = logDao.observeRecent(20).stateIn(
         viewModelScope,
@@ -36,6 +38,14 @@ class SettingsViewModel @Inject constructor(
 
     fun setCooldownHours(hours: Int) {
         viewModelScope.launch { repository.setNotificationCooldownHours(hours) }
+    }
+
+    fun setQuietHoursEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setQuietHoursEnabled(enabled) }
+    }
+
+    fun setQuietHours(startMinutes: Int, endMinutes: Int) {
+        viewModelScope.launch { repository.setQuietHours(startMinutes, endMinutes) }
     }
 
     fun checkGeofences() {

@@ -19,7 +19,18 @@ data class TaskEntity(
     val address: String? = null,
     val geofenceRadiusMeters: Float = DEFAULT_RADIUS_METERS,
     val geofenceEnabled: Boolean = false,
+    @ColumnInfo(defaultValue = "'ENTER'")
+    val geofenceTransitionMode: String = GeofenceTransitionMode.ENTER.name,
+    val notificationCooldownMinutes: Int? = null,
+    @ColumnInfo(defaultValue = "127")
+    val allowedDaysMask: Int = 127,
+    val reminderWindowStartMinutes: Int? = null,
+    val reminderWindowEndMinutes: Int? = null,
+    val snoozedUntil: Long? = null,
+    @ColumnInfo(defaultValue = "0")
+    val skipUntilNextVisit: Boolean = false,
     val lastNotifiedAt: Long? = null,
+    val lastNotifiedTransition: String? = null,
     @ColumnInfo(defaultValue = "'DISABLED'")
     val geofenceStatus: String = GeofenceStatus.DISABLED.name,
     val geofenceStatusDetails: String? = null,
@@ -38,6 +49,9 @@ data class TaskEntity(
 
     val resolvedPriority: TaskPriority
         get() = TaskPriority.fromStorage(priority)
+
+    val resolvedTransitionMode: GeofenceTransitionMode
+        get() = GeofenceTransitionMode.fromStorage(geofenceTransitionMode)
 
     companion object {
         const val DEFAULT_RADIUS_METERS = 250f

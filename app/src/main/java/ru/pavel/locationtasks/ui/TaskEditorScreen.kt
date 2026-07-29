@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -50,8 +51,10 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -72,10 +75,12 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.pavel.locationtasks.data.GeofenceStatus
+import ru.pavel.locationtasks.data.GeofenceTransitionMode
 import ru.pavel.locationtasks.data.TaskPriority
 import ru.pavel.locationtasks.R
 import ru.pavel.locationtasks.location.BackgroundExecutionState
 import ru.pavel.locationtasks.location.LocationPermissionState
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -88,6 +93,9 @@ fun TaskEditorScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showDatePicker by remember { mutableStateOf(false) }
+    var showDueTimePicker by remember { mutableStateOf(false) }
+    var showWindowStartPicker by remember { mutableStateOf(false) }
+    var showWindowEndPicker by remember { mutableStateOf(false) }
     var showLocationPicker by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
 
@@ -204,12 +212,20 @@ fun TaskEditorScreen(
                                 ?: stringResource(R.string.task_set_due_date),
                         )
                     }
-                    if (state.dueAt != null) {
+                    state.dueAt?.let { dueAt ->
+                        OutlinedButton(onClick = { showDueTimePicker = true }) {
+                            Text(formatTime(instantMinutesOfDay(dueAt)))
+                        }
                         TextButton(onClick = { viewModel.setDueAt(null) }) {
                             Text(stringResource(R.string.common_reset))
                         }
                     }
                 }
+                Text(
+                    stringResource(R.string.due_reminder_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
 
                 HorizontalDivider()
                 Text(
@@ -302,6 +318,131 @@ fun TaskEditorScreen(
                 }
 
                 if (state.geofenceEnabled) {
+                    Text(
+                        stringResource(R.string.transition_mode_label),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        GeofenceTransitionMode.entries.forEach { mode ->
+                            FilterChip(
+                                selected = state.transitionMode == mode,
+                                onClick = { viewModel.setTransitionMode(mode) },
+                                modifier = Modifier.weight(1f),
+                                label = {
+                                    Text(
+                                        stringResource(
+                                            when (mode) {
+                                                GeofenceTransitionMode.ENTER ->
+                                                    R.string.transition_enter
+                                                GeofenceTransitionMode.EXIT ->
+                                                    R.string.transition_exit
+                                                GeofenceTransitionMode.BOTH ->
+                                                    R.string.transition_both
+                                            },
+                                        ),
+                                    )
+                                },
+                            )
+                        }
+                    }
+
+                    Text(
+                        stringResource(R.string.task_cooldown_label),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        listOf<Int?>(null, 60, 240, 720, 1_440).forEach { minutes ->
+                            FilterChip(
+                                selected = state.notificationCooldownMinutes == minutes,
+                                onClick = {
+                                    viewModel.setNotificationCooldownMinutes(minutes)
+                                },
+                                label = {
+                                    Text(
+                                        if (minutes == null) {
+                                            stringResource(R.string.cooldown_default)
+                                        } else {
+                                            stringResource(R.string.cooldown_hours, minutes / 60)
+                                        },
+                                    )
+                                },
+                            )
+                        }
+                    }
+
+                    Text(
+                        stringResource(R.string.allowed_days_label),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        DayOfWeek.entries.forEach { day ->
+                            val bit = 1 shl (day.value - 1)
+                            FilterChip(
+                                selected = state.allowedDaysMask and bit != 0,
+                                onClick = { viewModel.toggleAllowedDay(bit) },
+                                label = { Text(stringResource(dayShortLabel(day))) },
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.reminder_window_title))
+                            Text(
+                                stringResource(R.string.reminder_window_description),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = state.reminderWindowStartMinutes != null,
+                            onCheckedChange = viewModel::setReminderWindowEnabled,
+                        )
+                    }
+                    state.reminderWindowStartMinutes?.let { startMinutes ->
+                        state.reminderWindowEndMinutes?.let { endMinutes ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                OutlinedButton(
+                                    onClick = { showWindowStartPicker = true },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(
+                                        stringResource(
+                                            R.string.reminder_window_from,
+                                            formatTime(startMinutes),
+                                        ),
+                                    )
+                                }
+                                OutlinedButton(
+                                    onClick = { showWindowEndPicker = true },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(
+                                        stringResource(
+                                            R.string.reminder_window_to,
+                                            formatTime(endMinutes),
+                                        ),
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     PermissionCard(
                         geofenceStatus = state.geofenceStatus,
                         geofenceStatusDetails = state.geofenceStatusDetails,
@@ -355,7 +496,7 @@ fun TaskEditorScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.setDueAt(datePickerState.selectedDateMillis)
+                        datePickerState.selectedDateMillis?.let(viewModel::setDueDate)
                         showDatePicker = false
                     },
                 ) { Text(stringResource(R.string.common_done)) }
@@ -368,6 +509,43 @@ fun TaskEditorScreen(
         ) {
             DatePicker(state = datePickerState)
         }
+    }
+
+    state.dueAt?.takeIf { showDueTimePicker }?.let { dueAt ->
+        ReminderTimePickerDialog(
+            initialMinutes = instantMinutesOfDay(dueAt),
+            onDismiss = { showDueTimePicker = false },
+            onConfirm = {
+                viewModel.setDueTime(it)
+                showDueTimePicker = false
+            },
+        )
+    }
+
+    if (showWindowStartPicker) {
+        ReminderTimePickerDialog(
+            initialMinutes = state.reminderWindowStartMinutes
+                ?: ru.pavel.locationtasks.notifications.ReminderSchedule
+                    .DEFAULT_WINDOW_START_MINUTES,
+            onDismiss = { showWindowStartPicker = false },
+            onConfirm = {
+                viewModel.setReminderWindowStart(it)
+                showWindowStartPicker = false
+            },
+        )
+    }
+
+    if (showWindowEndPicker) {
+        ReminderTimePickerDialog(
+            initialMinutes = state.reminderWindowEndMinutes
+                ?: ru.pavel.locationtasks.notifications.ReminderSchedule
+                    .DEFAULT_WINDOW_END_MINUTES,
+            onDismiss = { showWindowEndPicker = false },
+            onConfirm = {
+                viewModel.setReminderWindowEnd(it)
+                showWindowEndPicker = false
+            },
+        )
     }
 
     if (showLocationPicker) {
@@ -626,6 +804,53 @@ private fun formatEditorDate(timestamp: Long): String = DateTimeFormatter
     .ofPattern("dd.MM.yyyy")
     .withZone(ZoneId.systemDefault())
     .format(Instant.ofEpochMilli(timestamp))
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReminderTimePickerDialog(
+    initialMinutes: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit,
+) {
+    val pickerState = rememberTimePickerState(
+        initialHour = initialMinutes / 60,
+        initialMinute = initialMinutes % 60,
+        is24Hour = true,
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.choose_time)) },
+        text = { TimePicker(state = pickerState) },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(pickerState.hour * 60 + pickerState.minute) }) {
+                Text(stringResource(R.string.common_done))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+    )
+}
+
+private fun instantMinutesOfDay(timestamp: Long): Int {
+    val time = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalTime()
+    return time.hour * 60 + time.minute
+}
+
+private fun formatTime(minutes: Int): String =
+    "%02d:%02d".format(minutes / 60, minutes % 60)
+
+private fun dayShortLabel(day: DayOfWeek): Int = when (day) {
+    DayOfWeek.MONDAY -> R.string.day_mon
+    DayOfWeek.TUESDAY -> R.string.day_tue
+    DayOfWeek.WEDNESDAY -> R.string.day_wed
+    DayOfWeek.THURSDAY -> R.string.day_thu
+    DayOfWeek.FRIDAY -> R.string.day_fri
+    DayOfWeek.SATURDAY -> R.string.day_sat
+    DayOfWeek.SUNDAY -> R.string.day_sun
+}
 
 private fun formatCoordinate(value: Double?): String =
     value?.let { "%.5f".format(it) } ?: "—"

@@ -3,6 +3,7 @@ package ru.pavel.locationtasks.di
 import android.content.Context
 import androidx.room.Room
 import com.google.android.gms.location.GeofencingClient
+import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import dagger.Module
 import dagger.Provides
@@ -23,6 +24,7 @@ object AppModule {
         Room.databaseBuilder(context, AppDatabase::class.java, "location-tasks.db")
             .addMigrations(AppDatabase.MIGRATION_1_2)
             .addMigrations(AppDatabase.MIGRATION_2_3)
+            .addMigrations(AppDatabase.MIGRATION_3_4)
             .build()
 
     @Provides
@@ -35,4 +37,10 @@ object AppModule {
     @Singleton
     fun provideGeofencingClient(@ApplicationContext context: Context): GeofencingClient =
         LocationServices.getGeofencingClient(context)
+
+    @Provides
+    @Singleton
+    fun provideFusedLocationClient(
+        @ApplicationContext context: Context,
+    ): FusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context)
 }

@@ -2,6 +2,7 @@ package ru.pavel.locationtasks.data
 
 import kotlinx.coroutines.flow.Flow
 import ru.pavel.locationtasks.location.GeofenceCoordinator
+import ru.pavel.locationtasks.notifications.ReminderWorkScheduler
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -9,6 +10,7 @@ import javax.inject.Singleton
 class TaskRepository @Inject constructor(
     private val taskDao: TaskDao,
     private val geofenceCoordinator: GeofenceCoordinator,
+    private val reminderScheduler: ReminderWorkScheduler,
 ) {
     fun observeAll(): Flow<List<TaskEntity>> = taskDao.observeAll()
 
@@ -30,15 +32,22 @@ class TaskRepository @Inject constructor(
         }
 
         if (savedTask.shouldMonitor) {
+            if (previousTask == null ||
+                previousTask.locationReminderConfigurationDiffersFrom(savedTask)
+            ) {
+                reminderScheduler.cancelLocationReminder(savedTask.id)
+            }
             if (previousTask == null || previousTask.geofenceConfigurationDiffersFrom(savedTask)) {
                 geofenceCoordinator.reconcileTask(savedTask.id)
             } else {
                 geofenceCoordinator.reconcileAll()
             }
         } else {
+            reminderScheduler.cancelLocationReminder(savedTask.id)
             geofenceCoordinator.deactivate(savedTask.id)
             geofenceCoordinator.reconcileAll()
         }
+        reminderScheduler.syncDueReminder(savedTask)
         return savedTask.id
     }
 
@@ -49,6 +58,7 @@ class TaskRepository @Inject constructor(
         } else {
             geofenceCoordinator.reconcileAll()
         }
+        reminderScheduler.syncDueReminder(task)
     }
 
     suspend fun setDueAt(taskId: Long, dueAt: Long?) {
@@ -61,8 +71,12 @@ class TaskRepository @Inject constructor(
         if (completed) {
             geofenceCoordinator.deactivate(task.id)
             geofenceCoordinator.reconcileAll()
+            reminderScheduler.cancelAll(task.id)
         } else if (task.copy(isCompleted = false).shouldMonitor) {
             geofenceCoordinator.reconcileTask(task.id)
+            reminderScheduler.cancelDueReminder(task.id)
+        } else {
+            taskDao.getById(task.id)?.let(reminderScheduler::syncDueReminder)
         }
     }
 
@@ -75,6 +89,7 @@ class TaskRepository @Inject constructor(
         taskDao.delete(task)
         geofenceCoordinator.deactivate(task.id)
         geofenceCoordinator.reconcileAll()
+        reminderScheduler.cancelAll(task.id)
     }
 
     private fun TaskEntity.geofenceConfigurationDiffersFrom(other: TaskEntity): Boolean =
@@ -82,5 +97,15 @@ class TaskRepository @Inject constructor(
             longitude != other.longitude ||
             geofenceRadiusMeters != other.geofenceRadiusMeters ||
             geofenceEnabled != other.geofenceEnabled ||
+            geofenceTransitionMode != other.geofenceTransitionMode ||
             isCompleted != other.isCompleted
+
+    private fun TaskEntity.locationReminderConfigurationDiffersFrom(
+        other: TaskEntity,
+    ): Boolean =
+        geofenceConfigurationDiffersFrom(other) ||
+            notificationCooldownMinutes != other.notificationCooldownMinutes ||
+            allowedDaysMask != other.allowedDaysMask ||
+            reminderWindowStartMinutes != other.reminderWindowStartMinutes ||
+            reminderWindowEndMinutes != other.reminderWindowEndMinutes
 }

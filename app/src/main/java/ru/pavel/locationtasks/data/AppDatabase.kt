@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [TaskEntity::class, GeofenceLogEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -62,6 +62,33 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     "ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'NORMAL'",
+                )
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE tasks ADD COLUMN geofenceTransitionMode TEXT NOT NULL DEFAULT 'ENTER'",
+                )
+                db.execSQL(
+                    "ALTER TABLE tasks ADD COLUMN notificationCooldownMinutes INTEGER",
+                )
+                db.execSQL(
+                    "ALTER TABLE tasks ADD COLUMN allowedDaysMask INTEGER NOT NULL DEFAULT 127",
+                )
+                db.execSQL(
+                    "ALTER TABLE tasks ADD COLUMN reminderWindowStartMinutes INTEGER",
+                )
+                db.execSQL(
+                    "ALTER TABLE tasks ADD COLUMN reminderWindowEndMinutes INTEGER",
+                )
+                db.execSQL("ALTER TABLE tasks ADD COLUMN snoozedUntil INTEGER")
+                db.execSQL(
+                    "ALTER TABLE tasks ADD COLUMN skipUntilNextVisit INTEGER NOT NULL DEFAULT 0",
+                )
+                db.execSQL(
+                    "ALTER TABLE tasks ADD COLUMN lastNotifiedTransition TEXT",
                 )
             }
         }

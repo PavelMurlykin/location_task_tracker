@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import ru.pavel.locationtasks.data.GeofenceLogDao
 import ru.pavel.locationtasks.data.GeofenceLogEntity
+import ru.pavel.locationtasks.data.GeofenceTransition
 import ru.pavel.locationtasks.data.TaskDao
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.location.GeofenceCoordinator
@@ -14,6 +15,7 @@ import ru.pavel.locationtasks.location.GeofenceReconcileResult
 import ru.pavel.locationtasks.location.GeofenceRegistrationResult
 import ru.pavel.locationtasks.location.GeofenceRetryScheduler
 import ru.pavel.locationtasks.location.LocationPermissionState
+import ru.pavel.locationtasks.notifications.ReminderWorkScheduler
 
 class FakeTaskDao(
     initialTasks: List<TaskEntity> = emptyList(),
@@ -34,6 +36,9 @@ class FakeTaskDao(
             .filter(TaskEntity::shouldMonitor)
             .sortedBy(TaskEntity::id)
 
+    override suspend fun getTasksWithDueReminders(): List<TaskEntity> =
+        tasks.value.filter { !it.isCompleted && it.dueAt != null }
+
     override suspend fun insert(task: TaskEntity): Long {
         val id = if (task.id == 0L) nextId++ else task.id
         check(tasks.value.none { it.id == id })
@@ -53,8 +58,27 @@ class FakeTaskDao(
         updateTask(id) { it.copy(isCompleted = completed, updatedAt = updatedAt) }
     }
 
-    override suspend fun setLastNotifiedAt(id: Long, notifiedAt: Long) {
-        updateTask(id) { it.copy(lastNotifiedAt = notifiedAt) }
+    override suspend fun setLastNotifiedAt(id: Long, notifiedAt: Long, transition: String?) {
+        updateTask(id) {
+            it.copy(lastNotifiedAt = notifiedAt, lastNotifiedTransition = transition)
+        }
+    }
+
+    override suspend fun clearLastNotified(id: Long) {
+        updateTask(id) { it.copy(lastNotifiedAt = null, lastNotifiedTransition = null) }
+    }
+
+    override suspend fun setSnoozeState(
+        id: Long,
+        snoozedUntil: Long?,
+        skipUntilNextVisit: Boolean,
+    ) {
+        updateTask(id) {
+            it.copy(
+                snoozedUntil = snoozedUntil,
+                skipUntilNextVisit = skipUntilNextVisit,
+            )
+        }
     }
 
     override suspend fun setGeofenceStatus(
@@ -171,5 +195,45 @@ class FakeGeofenceRetryScheduler : GeofenceRetryScheduler {
 
     override fun scheduleRetry() {
         scheduledRetries += 1
+    }
+}
+
+class FakeReminderWorkScheduler : ReminderWorkScheduler {
+    val syncedTasks = mutableListOf<TaskEntity>()
+    val dueSchedules = mutableListOf<Pair<Long, Long>>()
+    val dueCancellations = mutableListOf<Long>()
+    val locationSchedules = mutableListOf<Triple<Long, GeofenceTransition, Long>>()
+    val locationCancellations = mutableListOf<Pair<Long, GeofenceTransition?>>()
+    val allCancellations = mutableListOf<Long>()
+
+    override fun syncDueReminder(task: TaskEntity) {
+        syncedTasks += task
+    }
+
+    override fun scheduleDueReminder(taskId: Long, triggerAt: Long) {
+        dueSchedules += taskId to triggerAt
+    }
+
+    override fun cancelDueReminder(taskId: Long) {
+        dueCancellations += taskId
+    }
+
+    override fun scheduleLocationReminder(
+        taskId: Long,
+        transition: GeofenceTransition,
+        triggerAt: Long,
+    ) {
+        locationSchedules += Triple(taskId, transition, triggerAt)
+    }
+
+    override fun cancelLocationReminder(
+        taskId: Long,
+        transition: GeofenceTransition?,
+    ) {
+        locationCancellations += taskId to transition
+    }
+
+    override fun cancelAll(taskId: Long) {
+        allCancellations += taskId
     }
 }

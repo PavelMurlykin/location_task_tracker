@@ -9,88 +9,34 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import ru.pavel.locationtasks.data.TaskDao
-import ru.pavel.locationtasks.data.GeofenceLogDao
-import ru.pavel.locationtasks.data.GeofenceLogEntity
-import ru.pavel.locationtasks.data.UserPreferencesRepository
-import ru.pavel.locationtasks.notifications.TaskNotificationManager
-import java.util.concurrent.TimeUnit
+import ru.pavel.locationtasks.data.GeofenceTransition
+import ru.pavel.locationtasks.notifications.LocationReminderDispatcher
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class GeofenceBroadcastReceiver : BroadcastReceiver() {
-    @Inject lateinit var taskDao: TaskDao
-    @Inject lateinit var logDao: GeofenceLogDao
-    @Inject lateinit var preferencesRepository: UserPreferencesRepository
-    @Inject lateinit var notificationManager: TaskNotificationManager
+    @Inject lateinit var dispatcher: LocationReminderDispatcher
 
     override fun onReceive(context: Context, intent: Intent) {
         val event = GeofencingEvent.fromIntent(intent) ?: return
-        if (event.hasError() || event.geofenceTransition != Geofence.GEOFENCE_TRANSITION_ENTER) return
+        if (event.hasError()) return
+        val transition = when (event.geofenceTransition) {
+            Geofence.GEOFENCE_TRANSITION_ENTER -> GeofenceTransition.ENTER
+            Geofence.GEOFENCE_TRANSITION_EXIT -> GeofenceTransition.EXIT
+            else -> return
+        }
 
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                val now = System.currentTimeMillis()
-                val cooldownHours = preferencesRepository.notificationCooldownHours.first()
-                val cooldownMillis = TimeUnit.HOURS.toMillis(cooldownHours.toLong())
                 event.triggeringGeofences.orEmpty()
                     .mapNotNull { GeofenceManager.taskId(it.requestId) }
                     .distinct()
-                    .forEach { taskId ->
-                        val task = taskDao.getById(taskId) ?: return@forEach
-                        if (!task.shouldMonitor) {
-                            logDao.record(
-                                task.triggerLog(GeofenceLogEntity.OUTCOME_TASK_INACTIVE),
-                            )
-                            return@forEach
-                        }
-                        val canNotify = task.lastNotifiedAt == null ||
-                            now - task.lastNotifiedAt >= cooldownMillis
-                        when {
-                            !canNotify -> logDao.record(
-                                task.triggerLog(
-                                    outcome = GeofenceLogEntity.OUTCOME_COOLDOWN,
-                                    occurredAt = now,
-                                ),
-                            )
-
-                            notificationManager.showNearbyTask(task) -> {
-                                taskDao.setLastNotifiedAt(taskId, now)
-                                logDao.record(
-                                    task.triggerLog(
-                                        outcome = GeofenceLogEntity.OUTCOME_NOTIFIED,
-                                        occurredAt = now,
-                                    ),
-                                )
-                            }
-
-                            else -> logDao.record(
-                                task.triggerLog(
-                                    outcome = GeofenceLogEntity.OUTCOME_NOTIFICATIONS_BLOCKED,
-                                    occurredAt = now,
-                                ),
-                            )
-                        }
-                    }
+                    .forEach { dispatcher.dispatch(it, transition) }
             } finally {
                 pendingResult.finish()
             }
         }
     }
-
-    private fun ru.pavel.locationtasks.data.TaskEntity.triggerLog(
-        outcome: String,
-        details: String? = null,
-        occurredAt: Long = System.currentTimeMillis(),
-    ) = GeofenceLogEntity(
-        taskId = id,
-        taskTitle = title,
-        event = GeofenceLogEntity.EVENT_TRIGGER,
-        outcome = outcome,
-        details = details,
-        occurredAt = occurredAt,
-    )
 }

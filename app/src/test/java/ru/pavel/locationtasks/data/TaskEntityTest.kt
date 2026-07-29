@@ -35,6 +35,15 @@ class TaskEntityTest {
         assertFalse(task.shouldMonitor)
     }
 
+    @Test
+    fun `transition mode can include entry exit or both`() {
+        assertTrue(GeofenceTransitionMode.ENTER.includes(GeofenceTransition.ENTER))
+        assertFalse(GeofenceTransitionMode.ENTER.includes(GeofenceTransition.EXIT))
+        assertTrue(GeofenceTransitionMode.EXIT.includes(GeofenceTransition.EXIT))
+        assertTrue(GeofenceTransitionMode.BOTH.includes(GeofenceTransition.ENTER))
+        assertTrue(GeofenceTransitionMode.BOTH.includes(GeofenceTransition.EXIT))
+    }
+
     private fun taskWithLocation(geofenceEnabled: Boolean) = TaskEntity(
         id = 1,
         title = "Забрать заказ",

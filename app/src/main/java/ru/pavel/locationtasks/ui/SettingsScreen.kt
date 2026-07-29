@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -22,10 +23,14 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -33,6 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -57,13 +63,15 @@ fun SettingsScreen(
     onOpenPrivacy: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
-    val cooldownHours by viewModel.cooldownHours.collectAsStateWithLifecycle()
+    val reminderPreferences by viewModel.reminderPreferences.collectAsStateWithLifecycle()
     val geofenceLogs by viewModel.geofenceLogs.collectAsStateWithLifecycle()
     val isCheckingGeofences by viewModel.isCheckingGeofences.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var permissions by remember { mutableStateOf(LocationPermissionState.from(context)) }
     var backgroundState by remember { mutableStateOf(BackgroundExecutionState.from(context)) }
+    var showQuietStartPicker by remember { mutableStateOf(false) }
+    var showQuietEndPicker by remember { mutableStateOf(false) }
 
     DisposableEffect(lifecycleOwner, context) {
         val observer = LifecycleEventObserver { _, event ->
@@ -115,10 +123,71 @@ fun SettingsScreen(
             ) {
                 UserPreferencesRepository.ALLOWED_COOLDOWNS.sorted().forEach { hours ->
                     FilterChip(
-                        selected = cooldownHours == hours,
+                        selected = reminderPreferences.notificationCooldownHours == hours,
                         onClick = { viewModel.setCooldownHours(hours) },
                         label = { Text(stringResource(R.string.cooldown_hours, hours)) },
                     )
+                }
+            }
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.quiet_hours_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                stringResource(R.string.quiet_hours_description),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = reminderPreferences.quietHoursEnabled,
+                            onCheckedChange = viewModel::setQuietHoursEnabled,
+                        )
+                    }
+                    if (reminderPreferences.quietHoursEnabled) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            OutlinedButton(
+                                onClick = { showQuietStartPicker = true },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(
+                                    stringResource(
+                                        R.string.quiet_hours_from,
+                                        formatSettingsTime(
+                                            reminderPreferences.quietHoursStartMinutes,
+                                        ),
+                                    ),
+                                )
+                            }
+                            OutlinedButton(
+                                onClick = { showQuietEndPicker = true },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(
+                                    stringResource(
+                                        R.string.quiet_hours_to,
+                                        formatSettingsTime(
+                                            reminderPreferences.quietHoursEndMinutes,
+                                        ),
+                                    ),
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -235,6 +304,27 @@ fun SettingsScreen(
             }
         }
     }
+
+    if (showQuietStartPicker) {
+        SettingsTimePickerDialog(
+            initialMinutes = reminderPreferences.quietHoursStartMinutes,
+            onDismiss = { showQuietStartPicker = false },
+            onConfirm = {
+                viewModel.setQuietHours(it, reminderPreferences.quietHoursEndMinutes)
+                showQuietStartPicker = false
+            },
+        )
+    }
+    if (showQuietEndPicker) {
+        SettingsTimePickerDialog(
+            initialMinutes = reminderPreferences.quietHoursEndMinutes,
+            onDismiss = { showQuietEndPicker = false },
+            onConfirm = {
+                viewModel.setQuietHours(reminderPreferences.quietHoursStartMinutes, it)
+                showQuietEndPicker = false
+            },
+        )
+    }
 }
 
 @Composable
@@ -267,6 +357,8 @@ private fun GeofenceLogCard(entry: GeofenceLogEntity) {
                 color = when (entry.outcome) {
                     GeofenceLogEntity.OUTCOME_ACTIVE,
                     GeofenceLogEntity.OUTCOME_NOTIFIED,
+                    GeofenceLogEntity.OUTCOME_DEFERRED,
+                    GeofenceLogEntity.OUTCOME_NEXT_VISIT,
                     -> MaterialTheme.colorScheme.primary
                     else -> MaterialTheme.colorScheme.error
                 },
@@ -290,6 +382,8 @@ private fun GeofenceLogCard(entry: GeofenceLogEntity) {
 @Composable
 private fun localizedLogDetails(details: String): String = when {
     details == "INVALID_TASK" -> stringResource(R.string.geofence_invalid_task)
+    details == "ENTER" -> stringResource(R.string.transition_enter)
+    details == "EXIT" -> stringResource(R.string.transition_exit)
     details.startsWith("RETRY_SCHEDULED|") -> stringResource(
         R.string.geofence_retry_scheduled_detail,
         details.substringAfter('|'),
@@ -310,6 +404,8 @@ private fun logOutcomeLabelRes(entry: GeofenceLogEntity): Int = when (entry.outc
     GeofenceLogEntity.OUTCOME_LIMIT_REACHED -> R.string.log_limit_reached
     GeofenceLogEntity.OUTCOME_NOTIFIED -> R.string.log_notification_shown
     GeofenceLogEntity.OUTCOME_COOLDOWN -> R.string.log_cooldown
+    GeofenceLogEntity.OUTCOME_DEFERRED -> R.string.log_reminder_deferred
+    GeofenceLogEntity.OUTCOME_NEXT_VISIT -> R.string.log_next_visit
     GeofenceLogEntity.OUTCOME_NOTIFICATIONS_BLOCKED ->
         R.string.log_notifications_blocked
     GeofenceLogEntity.OUTCOME_TASK_INACTIVE -> R.string.log_task_inactive
@@ -319,3 +415,35 @@ private fun logOutcomeLabelRes(entry: GeofenceLogEntity): Int = when (entry.outc
 private val LOG_DATE_FORMAT: DateTimeFormatter = DateTimeFormatter
     .ofPattern("dd.MM.yyyy HH:mm")
     .withZone(ZoneId.systemDefault())
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsTimePickerDialog(
+    initialMinutes: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit,
+) {
+    val state = rememberTimePickerState(
+        initialHour = initialMinutes / 60,
+        initialMinute = initialMinutes % 60,
+        is24Hour = true,
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.choose_time)) },
+        text = { TimePicker(state = state) },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) {
+                Text(stringResource(R.string.common_done))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+    )
+}
+
+private fun formatSettingsTime(minutes: Int): String =
+    "%02d:%02d".format(minutes / 60, minutes % 60)

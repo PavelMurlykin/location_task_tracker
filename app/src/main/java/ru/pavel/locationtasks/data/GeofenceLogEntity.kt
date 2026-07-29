@@ -32,6 +32,8 @@ data class GeofenceLogEntity(
         const val OUTCOME_LIMIT_REACHED = "LIMIT_REACHED"
         const val OUTCOME_NOTIFIED = "NOTIFIED"
         const val OUTCOME_COOLDOWN = "COOLDOWN"
+        const val OUTCOME_DEFERRED = "DEFERRED"
+        const val OUTCOME_NEXT_VISIT = "NEXT_VISIT"
         const val OUTCOME_NOTIFICATIONS_BLOCKED = "NOTIFICATIONS_BLOCKED"
         const val OUTCOME_TASK_INACTIVE = "TASK_INACTIVE"
 

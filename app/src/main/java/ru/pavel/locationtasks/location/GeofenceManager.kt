@@ -47,7 +47,9 @@ class GeofenceManager @Inject constructor(
             .setRequestId(requestId(task.id))
             .setCircularRegion(latitude, longitude, task.geofenceRadiusMeters)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
-            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER)
+            .setTransitionTypes(
+                Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT,
+            )
             .setNotificationResponsiveness(NOTIFICATION_RESPONSIVENESS_MS)
             .build()
         val request = GeofencingRequest.Builder()

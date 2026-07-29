@@ -7,13 +7,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import ru.pavel.locationtasks.testing.FakeGeofenceCoordinator
 import ru.pavel.locationtasks.testing.FakeTaskDao
+import ru.pavel.locationtasks.testing.FakeReminderWorkScheduler
 
 class TaskRepositoryTest {
     @Test
     fun `creation persists task and requests geofence registration`() = runBlocking {
         val taskDao = FakeTaskDao()
         val coordinator = FakeGeofenceCoordinator()
-        val repository = TaskRepository(taskDao, coordinator)
+        val repository = TaskRepository(taskDao, coordinator, FakeReminderWorkScheduler())
 
         val id = repository.save(monitoredTask(title = "Забрать заказ"))
 
@@ -27,7 +28,7 @@ class TaskRepositoryTest {
         val original = monitoredTask(id = 7L, title = "Старое название")
         val taskDao = FakeTaskDao(listOf(original))
         val coordinator = FakeGeofenceCoordinator()
-        val repository = TaskRepository(taskDao, coordinator)
+        val repository = TaskRepository(taskDao, coordinator, FakeReminderWorkScheduler())
 
         val savedId = repository.save(original.copy(title = "Новое название"))
 
@@ -43,7 +44,7 @@ class TaskRepositoryTest {
         val task = monitoredTask(id = 3L)
         val taskDao = FakeTaskDao(listOf(task))
         val coordinator = FakeGeofenceCoordinator()
-        val repository = TaskRepository(taskDao, coordinator)
+        val repository = TaskRepository(taskDao, coordinator, FakeReminderWorkScheduler())
 
         repository.setCompleted(task, true)
 
@@ -57,7 +58,7 @@ class TaskRepositoryTest {
         val task = monitoredTask(id = 4L).copy(isCompleted = true)
         val taskDao = FakeTaskDao(listOf(task))
         val coordinator = FakeGeofenceCoordinator()
-        val repository = TaskRepository(taskDao, coordinator)
+        val repository = TaskRepository(taskDao, coordinator, FakeReminderWorkScheduler())
 
         repository.setCompleted(task, false)
 
@@ -70,7 +71,7 @@ class TaskRepositoryTest {
         val task = monitoredTask(id = 9L)
         val taskDao = FakeTaskDao()
         val coordinator = FakeGeofenceCoordinator()
-        val repository = TaskRepository(taskDao, coordinator)
+        val repository = TaskRepository(taskDao, coordinator, FakeReminderWorkScheduler())
 
         repository.restore(task)
 
@@ -83,13 +84,31 @@ class TaskRepositoryTest {
         val task = monitoredTask(id = 10L)
         val taskDao = FakeTaskDao(listOf(task))
         val coordinator = FakeGeofenceCoordinator()
-        val repository = TaskRepository(taskDao, coordinator)
+        val repository = TaskRepository(taskDao, coordinator, FakeReminderWorkScheduler())
 
         repository.setDueAt(10L, 123_456L)
 
         assertEquals(123_456L, taskDao.getById(10L)?.dueAt)
         assertTrue(coordinator.reconciledTaskIds.isEmpty())
         assertEquals(1, coordinator.reconcileAllCalls)
+    }
+
+    @Test
+    fun `saving task without geofence synchronizes due reminder`() = runBlocking {
+        val taskDao = FakeTaskDao()
+        val coordinator = FakeGeofenceCoordinator()
+        val scheduler = FakeReminderWorkScheduler()
+        val repository = TaskRepository(taskDao, coordinator, scheduler)
+
+        val id = repository.save(
+            TaskEntity(
+                title = "Оплатить счёт",
+                dueAt = 123_456L,
+            ),
+        )
+
+        assertEquals(id, scheduler.syncedTasks.single().id)
+        assertEquals(123_456L, scheduler.syncedTasks.single().dueAt)
     }
 
     private fun monitoredTask(

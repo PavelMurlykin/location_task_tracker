@@ -14,10 +14,16 @@ import kotlinx.coroutines.launch
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.data.TaskRepository
 import ru.pavel.locationtasks.data.GeofenceStatus
+import ru.pavel.locationtasks.data.GeofenceTransitionMode
 import ru.pavel.locationtasks.data.TaskPriority
 import ru.pavel.locationtasks.R
 import ru.pavel.locationtasks.location.LocationResolver
 import ru.pavel.locationtasks.location.ResolvedLocation
+import ru.pavel.locationtasks.notifications.ReminderSchedule
+import java.time.Instant
+import java.time.LocalTime
+import java.time.ZoneId
+import java.time.ZoneOffset
 import javax.inject.Inject
 
 data class TaskEditorState(
@@ -33,6 +39,11 @@ data class TaskEditorState(
     val address: String = "",
     val radiusMeters: Float = TaskEntity.DEFAULT_RADIUS_METERS,
     val geofenceEnabled: Boolean = false,
+    val transitionMode: GeofenceTransitionMode = GeofenceTransitionMode.ENTER,
+    val notificationCooldownMinutes: Int? = null,
+    val allowedDaysMask: Int = ReminderSchedule.ALL_DAYS_MASK,
+    val reminderWindowStartMinutes: Int? = null,
+    val reminderWindowEndMinutes: Int? = null,
     val geofenceStatus: GeofenceStatus = GeofenceStatus.DISABLED,
     val geofenceStatusDetails: String? = null,
     @param:StringRes val validationMessageRes: Int? = null,
@@ -79,6 +90,11 @@ class TaskEditorViewModel @Inject constructor(
                     address = task.address.orEmpty(),
                     radiusMeters = task.geofenceRadiusMeters,
                     geofenceEnabled = task.geofenceEnabled,
+                    transitionMode = task.resolvedTransitionMode,
+                    notificationCooldownMinutes = task.notificationCooldownMinutes,
+                    allowedDaysMask = task.allowedDaysMask,
+                    reminderWindowStartMinutes = task.reminderWindowStartMinutes,
+                    reminderWindowEndMinutes = task.reminderWindowEndMinutes,
                     geofenceStatus = task.resolvedGeofenceStatus,
                     geofenceStatusDetails = task.geofenceStatusDetails,
                 )
@@ -107,8 +123,50 @@ class TaskEditorViewModel @Inject constructor(
     fun setTitle(value: String) = update { copy(title = value, validationMessageRes = null) }
     fun setDescription(value: String) = update { copy(description = value) }
     fun setDueAt(value: Long?) = update { copy(dueAt = value) }
+    fun setDueDate(selectedDateMillis: Long) = update {
+        val selectedDate = Instant.ofEpochMilli(selectedDateMillis)
+            .atZone(ZoneOffset.UTC)
+            .toLocalDate()
+        val time = dueAt?.let {
+            Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalTime()
+        } ?: LocalTime.of(DEFAULT_DUE_HOUR, 0)
+        copy(dueAt = selectedDate.atTime(time).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
+    }
+    fun setDueTime(minutes: Int) = update {
+        val date = dueAt?.let {
+            Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+        } ?: return@update this
+        val time = LocalTime.of(minutes / 60, minutes % 60)
+        copy(dueAt = date.atTime(time).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
+    }
     fun setPriority(value: TaskPriority) = update { copy(priority = value) }
     fun setCompleted(value: Boolean) = update { copy(isCompleted = value) }
+    fun setTransitionMode(value: GeofenceTransitionMode) =
+        update { copy(transitionMode = value) }
+    fun setNotificationCooldownMinutes(value: Int?) =
+        update { copy(notificationCooldownMinutes = value) }
+    fun toggleAllowedDay(dayBit: Int) = update {
+        val nextMask = allowedDaysMask xor dayBit
+        if (nextMask == 0) this else copy(allowedDaysMask = nextMask)
+    }
+    fun setReminderWindowEnabled(enabled: Boolean) = update {
+        copy(
+            reminderWindowStartMinutes = if (enabled) {
+                reminderWindowStartMinutes ?: ReminderSchedule.DEFAULT_WINDOW_START_MINUTES
+            } else {
+                null
+            },
+            reminderWindowEndMinutes = if (enabled) {
+                reminderWindowEndMinutes ?: ReminderSchedule.DEFAULT_WINDOW_END_MINUTES
+            } else {
+                null
+            },
+        )
+    }
+    fun setReminderWindowStart(minutes: Int) =
+        update { copy(reminderWindowStartMinutes = minutes) }
+    fun setReminderWindowEnd(minutes: Int) =
+        update { copy(reminderWindowEndMinutes = minutes) }
     fun setGeofenceEnabled(value: Boolean) = update {
         copy(
             geofenceEnabled = value,
@@ -166,7 +224,16 @@ class TaskEditorViewModel @Inject constructor(
                 task.latitude != current.latitude ||
                     task.longitude != current.longitude ||
                     task.geofenceRadiusMeters != current.radiusMeters ||
-                    task.geofenceEnabled != current.geofenceEnabled
+                    task.geofenceEnabled != current.geofenceEnabled ||
+                    task.resolvedTransitionMode != current.transitionMode
+            } ?: true
+            val reminderChanged = originalTask?.let { task ->
+                geofenceChanged ||
+                    task.dueAt != current.dueAt ||
+                    task.notificationCooldownMinutes != current.notificationCooldownMinutes ||
+                    task.allowedDaysMask != current.allowedDaysMask ||
+                    task.reminderWindowStartMinutes != current.reminderWindowStartMinutes ||
+                    task.reminderWindowEndMinutes != current.reminderWindowEndMinutes
             } ?: true
             repository.save(
                 base.copy(
@@ -180,7 +247,17 @@ class TaskEditorViewModel @Inject constructor(
                     address = current.address.trim().takeIf(String::isNotEmpty),
                     geofenceRadiusMeters = current.radiusMeters,
                     geofenceEnabled = current.geofenceEnabled,
-                    lastNotifiedAt = if (geofenceChanged) null else base.lastNotifiedAt,
+                    geofenceTransitionMode = current.transitionMode.name,
+                    notificationCooldownMinutes = current.notificationCooldownMinutes,
+                    allowedDaysMask = current.allowedDaysMask,
+                    reminderWindowStartMinutes = current.reminderWindowStartMinutes,
+                    reminderWindowEndMinutes = current.reminderWindowEndMinutes,
+                    snoozedUntil = if (reminderChanged) null else base.snoozedUntil,
+                    skipUntilNextVisit =
+                        if (reminderChanged) false else base.skipUntilNextVisit,
+                    lastNotifiedAt = if (reminderChanged) null else base.lastNotifiedAt,
+                    lastNotifiedTransition =
+                        if (reminderChanged) null else base.lastNotifiedTransition,
                     geofenceStatus = when {
                         !current.geofenceEnabled -> GeofenceStatus.DISABLED.name
                         geofenceChanged -> GeofenceStatus.PENDING.name
@@ -204,5 +281,9 @@ class TaskEditorViewModel @Inject constructor(
 
     private inline fun update(transform: TaskEditorState.() -> TaskEditorState) {
         _state.value = _state.value.transform()
+    }
+
+    companion object {
+        private const val DEFAULT_DUE_HOUR = 9
     }
 }
