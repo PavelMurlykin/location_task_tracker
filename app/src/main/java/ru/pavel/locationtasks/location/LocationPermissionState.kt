@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
+import androidx.core.app.NotificationManagerCompat
 
 data class LocationPermissionState(
     val preciseLocation: Boolean,
@@ -25,11 +26,13 @@ data class LocationPermissionState(
                     context,
                     Manifest.permission.ACCESS_BACKGROUND_LOCATION,
                 ) == PackageManager.PERMISSION_GRANTED
-            val notifications = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            val notificationPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
                 ContextCompat.checkSelfPermission(
                     context,
                     Manifest.permission.POST_NOTIFICATIONS,
                 ) == PackageManager.PERMISSION_GRANTED
+            val notifications = notificationPermission &&
+                NotificationManagerCompat.from(context).areNotificationsEnabled()
 
             return LocationPermissionState(fine, background, notifications)
         }

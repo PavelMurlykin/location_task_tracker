@@ -1,5 +1,6 @@
 package ru.pavel.locationtasks.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -17,6 +18,10 @@ data class TaskEntity(
     val geofenceRadiusMeters: Float = DEFAULT_RADIUS_METERS,
     val geofenceEnabled: Boolean = false,
     val lastNotifiedAt: Long? = null,
+    @ColumnInfo(defaultValue = "'DISABLED'")
+    val geofenceStatus: String = GeofenceStatus.DISABLED.name,
+    val geofenceStatusDetails: String? = null,
+    val geofenceRegisteredAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
 ) {
@@ -25,6 +30,9 @@ data class TaskEntity(
 
     val shouldMonitor: Boolean
         get() = geofenceEnabled && hasLocation && !isCompleted
+
+    val resolvedGeofenceStatus: GeofenceStatus
+        get() = GeofenceStatus.fromStorage(geofenceStatus)
 
     companion object {
         const val DEFAULT_RADIUS_METERS = 250f

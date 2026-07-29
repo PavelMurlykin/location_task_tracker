@@ -1,5 +1,6 @@
 package ru.pavel.locationtasks.location
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -17,7 +18,7 @@ import javax.inject.Singleton
 class GeofenceManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val geofencingClient: GeofencingClient,
-) {
+) : GeofencePlatform {
     private val pendingIntent: PendingIntent by lazy {
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -33,7 +34,8 @@ class GeofenceManager @Inject constructor(
         )
     }
 
-    suspend fun register(task: TaskEntity): GeofenceRegistrationResult {
+    @SuppressLint("MissingPermission")
+    override suspend fun register(task: TaskEntity): GeofenceRegistrationResult {
         if (!task.shouldMonitor) return GeofenceRegistrationResult.InvalidTask
         if (!LocationPermissionState.from(context).canRegisterGeofences) {
             return GeofenceRegistrationResult.MissingPermission
@@ -61,20 +63,10 @@ class GeofenceManager @Inject constructor(
         )
     }
 
-    suspend fun remove(taskId: Long) {
+    override suspend fun remove(taskId: Long) {
         if (taskId <= 0) return
         runCatching {
             geofencingClient.removeGeofences(listOf(requestId(taskId))).await()
-        }
-    }
-
-    suspend fun restore(tasks: List<TaskEntity>) {
-        val tasksToRestore = tasks.asSequence()
-            .filter(TaskEntity::shouldMonitor)
-            .take(MAX_GEOFENCES)
-            .toList()
-        for (task in tasksToRestore) {
-            register(task)
         }
     }
 

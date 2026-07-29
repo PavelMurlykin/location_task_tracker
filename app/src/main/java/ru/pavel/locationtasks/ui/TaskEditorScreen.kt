@@ -69,6 +69,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ru.pavel.locationtasks.data.GeofenceStatus
+import ru.pavel.locationtasks.location.BackgroundExecutionState
 import ru.pavel.locationtasks.location.LocationPermissionState
 import java.time.Instant
 import java.time.ZoneId
@@ -238,7 +240,10 @@ fun TaskEditorScreen(
                 }
 
                 if (state.geofenceEnabled) {
-                    PermissionCard()
+                    PermissionCard(
+                        geofenceStatus = state.geofenceStatus,
+                        geofenceStatusDetails = state.geofenceStatusDetails,
+                    )
                 }
 
                 if (state.isExisting) {
@@ -331,10 +336,14 @@ fun TaskEditorScreen(
 }
 
 @Composable
-private fun PermissionCard() {
+private fun PermissionCard(
+    geofenceStatus: GeofenceStatus,
+    geofenceStatusDetails: String?,
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var permissions by remember { mutableStateOf(LocationPermissionState.from(context)) }
+    var backgroundState by remember { mutableStateOf(BackgroundExecutionState.from(context)) }
     var showBackgroundDisclosure by remember { mutableStateOf(false) }
 
     val foregroundLauncher = rememberLauncherForActivityResult(
@@ -351,6 +360,7 @@ private fun PermissionCard() {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 permissions = LocationPermissionState.from(context)
+                backgroundState = BackgroundExecutionState.from(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -362,6 +372,16 @@ private fun PermissionCard() {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            Text("Состояние геонапоминания", fontWeight = FontWeight.SemiBold)
+            GeofenceStateRow(
+                status = when {
+                    !permissions.canRegisterGeofences || !permissions.notifications ->
+                        GeofenceStatus.MISSING_PERMISSION
+                    else -> geofenceStatus
+                },
+                details = geofenceStatusDetails,
+            )
+            HorizontalDivider()
             Text("Разрешения", fontWeight = FontWeight.SemiBold)
             PermissionRow("Точная геопозиция", permissions.preciseLocation)
             PermissionRow("Геопозиция в фоне", permissions.backgroundLocation)
@@ -397,6 +417,35 @@ private fun PermissionCard() {
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
+
+            if (permissions.canRegisterGeofences && backgroundState.mayDelayGeofences) {
+                Text(
+                    if (backgroundState.backgroundRestricted) {
+                        "Фоновая работа приложения ограничена системой. Геонапоминания могут задерживаться."
+                    } else {
+                        "Режим энергосбережения может задерживать геонапоминания."
+                    },
+                    color = Color(0xFF9A6700),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                TextButton(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+                            )
+                        }.onFailure {
+                            context.startActivity(
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.fromParts("package", context.packageName, null)
+                                },
+                            )
+                        }
+                    },
+                ) {
+                    Text("Настроить энергосбережение")
+                }
+            }
         }
     }
 
@@ -430,6 +479,34 @@ private fun PermissionCard() {
                 TextButton(onClick = { showBackgroundDisclosure = false }) { Text("Не сейчас") }
             },
         )
+    }
+}
+
+@Composable
+private fun GeofenceStateRow(
+    status: GeofenceStatus,
+    details: String?,
+) {
+    val (label, color) = when (status) {
+        GeofenceStatus.ACTIVE -> "Активно" to MaterialTheme.colorScheme.primary
+        GeofenceStatus.PENDING -> "Ожидает регистрации" to MaterialTheme.colorScheme.onSurfaceVariant
+        GeofenceStatus.MISSING_PERMISSION ->
+            "Нет необходимых разрешений" to MaterialTheme.colorScheme.error
+        GeofenceStatus.LIMIT_REACHED ->
+            "Неактивно: лимит 100 геозон" to MaterialTheme.colorScheme.error
+        GeofenceStatus.ERROR ->
+            "Ошибка регистрации" to MaterialTheme.colorScheme.error
+        GeofenceStatus.DISABLED -> "Выключено" to MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, color = color, style = MaterialTheme.typography.bodyMedium)
+        if (status == GeofenceStatus.ERROR && !details.isNullOrBlank()) {
+            Text(
+                details,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
     }
 }
 

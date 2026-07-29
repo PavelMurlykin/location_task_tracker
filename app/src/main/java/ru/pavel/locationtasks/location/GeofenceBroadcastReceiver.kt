@@ -12,6 +12,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ru.pavel.locationtasks.data.TaskDao
+import ru.pavel.locationtasks.data.GeofenceLogDao
+import ru.pavel.locationtasks.data.GeofenceLogEntity
 import ru.pavel.locationtasks.data.UserPreferencesRepository
 import ru.pavel.locationtasks.notifications.TaskNotificationManager
 import java.util.concurrent.TimeUnit
@@ -20,6 +22,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class GeofenceBroadcastReceiver : BroadcastReceiver() {
     @Inject lateinit var taskDao: TaskDao
+    @Inject lateinit var logDao: GeofenceLogDao
     @Inject lateinit var preferencesRepository: UserPreferencesRepository
     @Inject lateinit var notificationManager: TaskNotificationManager
 
@@ -38,11 +41,40 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                     .distinct()
                     .forEach { taskId ->
                         val task = taskDao.getById(taskId) ?: return@forEach
-                        if (!task.shouldMonitor) return@forEach
+                        if (!task.shouldMonitor) {
+                            logDao.record(
+                                task.triggerLog(GeofenceLogEntity.OUTCOME_TASK_INACTIVE),
+                            )
+                            return@forEach
+                        }
                         val canNotify = task.lastNotifiedAt == null ||
                             now - task.lastNotifiedAt >= cooldownMillis
-                        if (canNotify && notificationManager.showNearbyTask(task)) {
-                            taskDao.setLastNotifiedAt(taskId, now)
+                        when {
+                            !canNotify -> logDao.record(
+                                task.triggerLog(
+                                    outcome = GeofenceLogEntity.OUTCOME_COOLDOWN,
+                                    details = "Повторное уведомление временно подавлено",
+                                    occurredAt = now,
+                                ),
+                            )
+
+                            notificationManager.showNearbyTask(task) -> {
+                                taskDao.setLastNotifiedAt(taskId, now)
+                                logDao.record(
+                                    task.triggerLog(
+                                        outcome = GeofenceLogEntity.OUTCOME_NOTIFIED,
+                                        occurredAt = now,
+                                    ),
+                                )
+                            }
+
+                            else -> logDao.record(
+                                task.triggerLog(
+                                    outcome = GeofenceLogEntity.OUTCOME_NOTIFICATIONS_BLOCKED,
+                                    details = "Нет разрешения на показ уведомлений",
+                                    occurredAt = now,
+                                ),
+                            )
                         }
                     }
             } finally {
@@ -50,4 +82,17 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             }
         }
     }
+
+    private fun ru.pavel.locationtasks.data.TaskEntity.triggerLog(
+        outcome: String,
+        details: String? = null,
+        occurredAt: Long = System.currentTimeMillis(),
+    ) = GeofenceLogEntity(
+        taskId = id,
+        taskTitle = title,
+        event = GeofenceLogEntity.EVENT_TRIGGER,
+        outcome = outcome,
+        details = details,
+        occurredAt = occurredAt,
+    )
 }

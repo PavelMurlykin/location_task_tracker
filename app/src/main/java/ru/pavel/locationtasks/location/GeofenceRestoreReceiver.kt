@@ -8,13 +8,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import ru.pavel.locationtasks.data.TaskDao
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class GeofenceRestoreReceiver : BroadcastReceiver() {
-    @Inject lateinit var taskDao: TaskDao
-    @Inject lateinit var geofenceManager: GeofenceManager
+    @Inject lateinit var geofenceCoordinator: GeofenceCoordinator
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
@@ -24,7 +22,7 @@ class GeofenceRestoreReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                geofenceManager.restore(taskDao.getTasksToMonitor())
+                geofenceCoordinator.reconcileAll(force = true)
             } finally {
                 pendingResult.finish()
             }

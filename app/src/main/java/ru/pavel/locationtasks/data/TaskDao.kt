@@ -26,6 +26,7 @@ interface TaskDao {
           AND isCompleted = 0
           AND latitude IS NOT NULL
           AND longitude IS NOT NULL
+        ORDER BY dueAt IS NULL, dueAt ASC, updatedAt DESC, id ASC
         """,
     )
     suspend fun getTasksToMonitor(): List<TaskEntity>
@@ -44,4 +45,20 @@ interface TaskDao {
 
     @Query("UPDATE tasks SET lastNotifiedAt = :notifiedAt WHERE id = :id")
     suspend fun setLastNotifiedAt(id: Long, notifiedAt: Long)
+
+    @Query(
+        """
+        UPDATE tasks
+        SET geofenceStatus = :status,
+            geofenceStatusDetails = :details,
+            geofenceRegisteredAt = :registeredAt
+        WHERE id = :id
+        """,
+    )
+    suspend fun setGeofenceStatus(
+        id: Long,
+        status: String,
+        details: String?,
+        registeredAt: Long?,
+    )
 }

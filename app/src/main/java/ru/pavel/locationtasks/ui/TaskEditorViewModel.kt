@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.data.TaskRepository
+import ru.pavel.locationtasks.data.GeofenceStatus
 import ru.pavel.locationtasks.location.LocationResolver
 import ru.pavel.locationtasks.location.ResolvedLocation
 import javax.inject.Inject
@@ -28,6 +29,8 @@ data class TaskEditorState(
     val address: String = "",
     val radiusMeters: Float = TaskEntity.DEFAULT_RADIUS_METERS,
     val geofenceEnabled: Boolean = false,
+    val geofenceStatus: GeofenceStatus = GeofenceStatus.DISABLED,
+    val geofenceStatusDetails: String? = null,
     val validationMessage: String? = null,
     val isSaving: Boolean = false,
 ) {
@@ -71,7 +74,27 @@ class TaskEditorViewModel @Inject constructor(
                     address = task.address.orEmpty(),
                     radiusMeters = task.geofenceRadiusMeters,
                     geofenceEnabled = task.geofenceEnabled,
+                    geofenceStatus = task.resolvedGeofenceStatus,
+                    geofenceStatusDetails = task.geofenceStatusDetails,
                 )
+            }
+        }
+        if (taskId > 0) {
+            viewModelScope.launch {
+                repository.observeById(taskId).collect { latestTask ->
+                    latestTask ?: return@collect
+                    originalTask = originalTask?.copy(
+                        geofenceStatus = latestTask.geofenceStatus,
+                        geofenceStatusDetails = latestTask.geofenceStatusDetails,
+                        geofenceRegisteredAt = latestTask.geofenceRegisteredAt,
+                    ) ?: latestTask
+                    update {
+                        copy(
+                            geofenceStatus = latestTask.resolvedGeofenceStatus,
+                            geofenceStatusDetails = latestTask.geofenceStatusDetails,
+                        )
+                    }
+                }
             }
         }
     }
@@ -80,7 +103,13 @@ class TaskEditorViewModel @Inject constructor(
     fun setDescription(value: String) = update { copy(description = value) }
     fun setDueAt(value: Long?) = update { copy(dueAt = value) }
     fun setCompleted(value: Boolean) = update { copy(isCompleted = value) }
-    fun setGeofenceEnabled(value: Boolean) = update { copy(geofenceEnabled = value) }
+    fun setGeofenceEnabled(value: Boolean) = update {
+        copy(
+            geofenceEnabled = value,
+            geofenceStatus = if (value) GeofenceStatus.PENDING else GeofenceStatus.DISABLED,
+            geofenceStatusDetails = null,
+        )
+    }
     fun setRadius(value: Float) = update { copy(radiusMeters = value.coerceIn(100f, 1_000f)) }
 
     fun setLocation(latitude: Double, longitude: Double, address: String) = update {
@@ -89,12 +118,21 @@ class TaskEditorViewModel @Inject constructor(
             longitude = longitude,
             address = address,
             geofenceEnabled = true,
+            geofenceStatus = GeofenceStatus.PENDING,
+            geofenceStatusDetails = null,
             validationMessage = null,
         )
     }
 
     fun clearLocation() = update {
-        copy(latitude = null, longitude = null, address = "", geofenceEnabled = false)
+        copy(
+            latitude = null,
+            longitude = null,
+            address = "",
+            geofenceEnabled = false,
+            geofenceStatus = GeofenceStatus.DISABLED,
+            geofenceStatusDetails = null,
+        )
     }
 
     fun searchLocation(query: String, onResult: (ResolvedLocation?) -> Unit) {
@@ -136,6 +174,13 @@ class TaskEditorViewModel @Inject constructor(
                     geofenceRadiusMeters = current.radiusMeters,
                     geofenceEnabled = current.geofenceEnabled,
                     lastNotifiedAt = if (geofenceChanged) null else base.lastNotifiedAt,
+                    geofenceStatus = when {
+                        !current.geofenceEnabled -> GeofenceStatus.DISABLED.name
+                        geofenceChanged -> GeofenceStatus.PENDING.name
+                        else -> base.geofenceStatus
+                    },
+                    geofenceStatusDetails = if (geofenceChanged) null else base.geofenceStatusDetails,
+                    geofenceRegisteredAt = if (geofenceChanged) null else base.geofenceRegisteredAt,
                 ),
             )
             _events.send(EditorEvent.Saved)

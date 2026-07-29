@@ -10,6 +10,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import ru.pavel.locationtasks.data.AppDatabase
+import ru.pavel.locationtasks.data.GeofenceLogDao
 import ru.pavel.locationtasks.data.TaskDao
 import javax.inject.Singleton
 
@@ -20,10 +21,14 @@ object AppModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "location-tasks.db")
+            .addMigrations(AppDatabase.MIGRATION_1_2)
             .build()
 
     @Provides
     fun provideTaskDao(database: AppDatabase): TaskDao = database.taskDao()
+
+    @Provides
+    fun provideGeofenceLogDao(database: AppDatabase): GeofenceLogDao = database.geofenceLogDao()
 
     @Provides
     @Singleton

@@ -14,6 +14,7 @@ hiltNavigationCompose = "1.2.0"
 playServicesLocation = "21.3.0"
 yandexMapkit = "4.42.0-lite"
 coroutines = "1.10.2"
+work = "2.10.1"
 junit = "4.13.2"
 androidxJunit = "1.2.1"
 espresso = "3.6.1"
@@ -45,6 +46,7 @@ google-play-services-location = { module = "com.google.android.gms:play-services
 yandex-mapkit-lite = { module = "com.yandex.android:maps.mobile", version.ref = "yandexMapkit" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "coroutines" }
+androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 junit = { module = "junit:junit", version.ref = "junit" }
 androidx-junit = { module = "androidx.test.ext:junit", version.ref = "androidxJunit" }
 androidx-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }

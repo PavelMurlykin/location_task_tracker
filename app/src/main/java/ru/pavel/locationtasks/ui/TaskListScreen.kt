@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,6 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,12 +39,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import ru.pavel.locationtasks.data.TaskEntity
+import ru.pavel.locationtasks.data.GeofenceStatus
+import ru.pavel.locationtasks.location.LocationPermissionState
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -58,6 +67,18 @@ fun TaskListScreen(
 ) {
     val tasks by viewModel.tasks.collectAsState()
     var filter by remember { mutableStateOf(TaskFilter.ACTIVE) }
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var permissions by remember { mutableStateOf(LocationPermissionState.from(context)) }
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                permissions = LocationPermissionState.from(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val visibleTasks = tasks.filter { task ->
         if (filter == TaskFilter.ACTIVE) !task.isCompleted else task.isCompleted
     }
@@ -111,6 +132,7 @@ fun TaskListScreen(
                     items(visibleTasks, key = TaskEntity::id) { task ->
                         TaskCard(
                             task = task,
+                            permissions = permissions,
                             onClick = { onOpenTask(task.id) },
                             onCompletedChange = { viewModel.setCompleted(task, it) },
                         )
@@ -144,6 +166,7 @@ private fun EmptyTasks(filter: TaskFilter, modifier: Modifier = Modifier) {
 @Composable
 private fun TaskCard(
     task: TaskEntity,
+    permissions: LocationPermissionState,
     onClick: () -> Unit,
     onCompletedChange: (Boolean) -> Unit,
 ) {
@@ -207,8 +230,51 @@ private fun TaskCard(
                         )
                     }
                 }
+                if (task.geofenceEnabled && !task.isCompleted) {
+                    Spacer(Modifier.height(6.dp))
+                    GeofenceStatusRow(task, permissions)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun GeofenceStatusRow(
+    task: TaskEntity,
+    permissions: LocationPermissionState,
+) {
+    val status = if (!permissions.canRegisterGeofences || !permissions.notifications) {
+        GeofenceStatus.MISSING_PERMISSION
+    } else {
+        task.resolvedGeofenceStatus
+    }
+    val label = when (status) {
+        GeofenceStatus.ACTIVE -> "Геонапоминание активно"
+        GeofenceStatus.PENDING -> "Геонапоминание настраивается"
+        GeofenceStatus.MISSING_PERMISSION -> "Геонапоминание: нет разрешения"
+        GeofenceStatus.LIMIT_REACHED -> "Геонапоминание: превышен лимит 100"
+        GeofenceStatus.ERROR -> "Геонапоминание: ошибка регистрации"
+        GeofenceStatus.DISABLED -> "Геонапоминание выключено"
+    }
+    val color = when (status) {
+        GeofenceStatus.ACTIVE -> MaterialTheme.colorScheme.primary
+        GeofenceStatus.PENDING -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> MaterialTheme.colorScheme.error
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = if (status == GeofenceStatus.ACTIVE) {
+                Icons.Default.LocationOn
+            } else {
+                Icons.Default.Warning
+            },
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = color,
+        )
+        Spacer(Modifier.size(5.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, color = color)
     }
 }
 

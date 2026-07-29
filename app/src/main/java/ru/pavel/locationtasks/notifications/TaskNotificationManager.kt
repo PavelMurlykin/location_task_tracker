@@ -40,6 +40,13 @@ class TaskNotificationManager @Inject constructor(
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) return false
+        val notificationManager = NotificationManagerCompat.from(context)
+        if (!notificationManager.areNotificationsEnabled()) return false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            context.getSystemService(NotificationManager::class.java)
+                .getNotificationChannel(CHANNEL_ID)
+                ?.importance == NotificationManager.IMPORTANCE_NONE
+        ) return false
 
         val contentIntent = PendingIntent.getActivity(
             context,
@@ -76,7 +83,7 @@ class TaskNotificationManager @Inject constructor(
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .build()
 
-        NotificationManagerCompat.from(context).notify(task.id.hashCode(), notification)
+        notificationManager.notify(task.id.hashCode(), notification)
         return true
     }
 
