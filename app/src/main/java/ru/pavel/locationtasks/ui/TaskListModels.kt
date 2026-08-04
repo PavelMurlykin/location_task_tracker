@@ -106,11 +106,15 @@ fun distanceMeters(task: TaskEntity, currentLocation: GeoPoint?): Double? {
     val latitude = task.latitude ?: return null
     val longitude = task.longitude ?: return null
     val origin = currentLocation ?: return null
+    return distanceMeters(origin, GeoPoint(latitude, longitude))
+}
+
+fun distanceMeters(from: GeoPoint, to: GeoPoint): Double {
     val earthRadiusMeters = 6_371_000.0
-    val latitudeDelta = Math.toRadians(latitude - origin.latitude)
-    val longitudeDelta = Math.toRadians(longitude - origin.longitude)
-    val startLatitude = Math.toRadians(origin.latitude)
-    val endLatitude = Math.toRadians(latitude)
+    val latitudeDelta = Math.toRadians(to.latitude - from.latitude)
+    val longitudeDelta = Math.toRadians(to.longitude - from.longitude)
+    val startLatitude = Math.toRadians(from.latitude)
+    val endLatitude = Math.toRadians(to.latitude)
     val haversine = sin(latitudeDelta / 2) * sin(latitudeDelta / 2) +
         cos(startLatitude) * cos(endLatitude) *
         sin(longitudeDelta / 2) * sin(longitudeDelta / 2)

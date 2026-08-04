@@ -82,6 +82,12 @@ class TaskEditorViewModel @Inject constructor(
 ) : ViewModel() {
     private val taskId = savedStateHandle.get<Long>("taskId") ?: 0L
     private val initialTitle = savedStateHandle.get<String>("initialTitle").orEmpty()
+    private val initialLatitude = savedStateHandle.get<String>("initialLatitude")
+        ?.toDoubleOrNull()
+        ?.takeIf { it in -90.0..90.0 }
+    private val initialLongitude = savedStateHandle.get<String>("initialLongitude")
+        ?.toDoubleOrNull()
+        ?.takeIf { it in -180.0..180.0 }
     private var originalTask: TaskEntity? = null
     private val _state = MutableStateFlow(TaskEditorState())
     val state: StateFlow<TaskEditorState> = _state.asStateFlow()
@@ -103,7 +109,19 @@ class TaskEditorViewModel @Inject constructor(
             originalTask = if (taskId > 0) repository.getById(taskId) else null
             val task = originalTask
             _state.value = if (task == null) {
-                TaskEditorState(isLoading = false, title = initialTitle)
+                val hasInitialLocation = initialLatitude != null && initialLongitude != null
+                TaskEditorState(
+                    isLoading = false,
+                    title = initialTitle,
+                    latitude = initialLatitude,
+                    longitude = initialLongitude,
+                    geofenceEnabled = hasInitialLocation,
+                    geofenceStatus = if (hasInitialLocation) {
+                        GeofenceStatus.PENDING
+                    } else {
+                        GeofenceStatus.DISABLED
+                    },
+                )
             } else {
                 TaskEditorState(
                     isLoading = false,
@@ -131,6 +149,17 @@ class TaskEditorViewModel @Inject constructor(
                     geofenceStatus = task.resolvedGeofenceStatus,
                     geofenceStatusDetails = task.geofenceStatusDetails,
                 )
+            }
+            if (task == null && initialLatitude != null && initialLongitude != null) {
+                locationResolver.reverse(initialLatitude, initialLongitude)?.let { address ->
+                    update {
+                        if (latitude == initialLatitude && longitude == initialLongitude) {
+                            copy(address = address)
+                        } else {
+                            this
+                        }
+                    }
+                }
             }
         }
         if (taskId > 0) {

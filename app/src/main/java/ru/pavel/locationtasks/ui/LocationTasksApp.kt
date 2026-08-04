@@ -11,12 +11,16 @@ import androidx.navigation.navArgument
 
 private object Routes {
     const val TASKS = "tasks"
-    const val TASK = "task/{taskId}?initialTitle={initialTitle}"
+    const val TASK = "task/{taskId}?initialTitle={initialTitle}" +
+        "&initialLatitude={initialLatitude}&initialLongitude={initialLongitude}"
+    const val MAP = "map"
     const val SETTINGS = "settings"
     const val PRIVACY = "privacy"
 
     fun task(taskId: Long) = "task/$taskId"
     fun newTask(initialTitle: String) = "task/0?initialTitle=${Uri.encode(initialTitle)}"
+    fun newTaskAt(latitude: Double, longitude: Double) =
+        "task/0?initialLatitude=$latitude&initialLongitude=$longitude"
 }
 
 @Composable
@@ -54,7 +58,17 @@ fun LocationTasksApp(
                     )
                 },
                 onOpenTask = { navController.navigate(Routes.task(it)) },
+                onOpenMap = { navController.navigate(Routes.MAP) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+            )
+        }
+        composable(Routes.MAP) {
+            TaskMapScreen(
+                onClose = navController::popBackStack,
+                onOpenTask = { navController.navigate(Routes.task(it)) },
+                onCreateTaskAt = { latitude, longitude ->
+                    navController.navigate(Routes.newTaskAt(latitude, longitude))
+                },
             )
         }
         composable(
@@ -62,6 +76,14 @@ fun LocationTasksApp(
             arguments = listOf(
                 navArgument("taskId") { type = NavType.LongType },
                 navArgument("initialTitle") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+                navArgument("initialLatitude") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+                navArgument("initialLongitude") {
                     type = NavType.StringType
                     defaultValue = ""
                 },

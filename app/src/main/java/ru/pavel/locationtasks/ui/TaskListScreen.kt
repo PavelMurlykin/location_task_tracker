@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
@@ -114,6 +115,7 @@ import kotlin.math.roundToInt
 fun TaskListScreen(
     onCreateTask: (String) -> Unit,
     onOpenTask: (Long) -> Unit,
+    onOpenMap: () -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: TaskListViewModel = hiltViewModel(),
 ) {
@@ -238,6 +240,12 @@ fun TaskListScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
+                    IconButton(onClick = onOpenMap) {
+                        Icon(
+                            Icons.Default.Map,
+                            contentDescription = stringResource(R.string.task_map_title),
+                        )
+                    }
                     Box {
                         IconButton(onClick = { sortMenuExpanded = true }) {
                             Icon(

@@ -244,4 +244,23 @@
     <string name="voice_input">Голосовой ввод</string>
     <string name="voice_input_hint">Можно сказать: «Купить молоко возле дома»</string>
     <string name="voice_input_unavailable">Голосовой ввод недоступен на этом устройстве</string>
+
+    <string name="task_map_title">Карта задач</string>
+    <string name="map_mode_all">Карта (%1$d)</string>
+    <string name="map_mode_nearby">Рядом</string>
+    <string name="general_map_long_press_hint">Удерживайте карту, чтобы создать задачу</string>
+    <string name="map_empty_tasks">Нет активных задач с местоположением</string>
+    <string name="map_marker_summary">На карте %1$d меток и групп</string>
+    <string name="tasks_at_place">Задач в этом месте: %1$d</string>
+    <string name="more_tasks_at_place">Ещё задач: %1$d</string>
+    <string name="route_summary">Маршрут: %1$d дел · %2$s</string>
+    <string name="route_straight_line_notice">Порядок остановок оптимизирован по расстоянию; линия показывает примерный маршрут.</string>
+    <string name="along_the_way_title">Можно сделать по пути</string>
+    <string name="along_the_way_badge">По пути</string>
+    <string name="route_task_limit">В маршрут можно добавить не больше %1$d дел</string>
+    <string name="nearby_location_explanation">Разрешите точную геопозицию, чтобы увидеть ближайшие задачи.</string>
+    <string name="location_loading">Определяем место…</string>
+    <string name="route_selected_count">Выбрано дел: %1$d</string>
+    <string name="route_selection_hint">Отметьте до %1$d остановок</string>
+    <string name="build_route">Маршрут</string>
 </resources>

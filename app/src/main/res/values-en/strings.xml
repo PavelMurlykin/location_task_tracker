@@ -244,4 +244,23 @@
     <string name="voice_input">Voice input</string>
     <string name="voice_input_hint">Try saying: “Buy milk near home”</string>
     <string name="voice_input_unavailable">Voice input is unavailable on this device</string>
+
+    <string name="task_map_title">Task map</string>
+    <string name="map_mode_all">Map (%1$d)</string>
+    <string name="map_mode_nearby">Nearby</string>
+    <string name="general_map_long_press_hint">Touch and hold the map to create a task</string>
+    <string name="map_empty_tasks">No active tasks with a location</string>
+    <string name="map_marker_summary">Markers and groups on the map: %1$d</string>
+    <string name="tasks_at_place">Tasks at this place: %1$d</string>
+    <string name="more_tasks_at_place">More tasks: %1$d</string>
+    <string name="route_summary">Route · errands: %1$d · %2$s</string>
+    <string name="route_straight_line_notice">Stop order is optimized by distance; the line shows an approximate route.</string>
+    <string name="along_the_way_title">Can be done along the way</string>
+    <string name="along_the_way_badge">Along the way</string>
+    <string name="route_task_limit">Maximum errands in a route: %1$d</string>
+    <string name="nearby_location_explanation">Allow precise location to see the nearest tasks.</string>
+    <string name="location_loading">Getting location…</string>
+    <string name="route_selected_count">Selected errands: %1$d</string>
+    <string name="route_selection_hint">Maximum stops: %1$d</string>
+    <string name="build_route">Route</string>
 </resources>
