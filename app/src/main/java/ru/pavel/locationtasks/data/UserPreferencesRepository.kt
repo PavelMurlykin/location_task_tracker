@@ -20,6 +20,10 @@ data class ReminderPreferences(
     val quietHoursEndMinutes: Int = UserPreferencesRepository.DEFAULT_QUIET_END_MINUTES,
 )
 
+data class SecurityPreferences(
+    val appLockEnabled: Boolean = false,
+)
+
 @Singleton
 class UserPreferencesRepository @Inject constructor(
     @param:ApplicationContext private val context: Context,
@@ -37,6 +41,11 @@ class UserPreferencesRepository @Inject constructor(
     }
     val notificationCooldownHours: Flow<Int> =
         reminderPreferences.map { it.notificationCooldownHours }
+    val securityPreferences: Flow<SecurityPreferences> = context.dataStore.data.map { preferences ->
+        SecurityPreferences(
+            appLockEnabled = preferences[APP_LOCK_ENABLED] ?: false,
+        )
+    }
 
     suspend fun setNotificationCooldownHours(hours: Int) {
         require(hours in ALLOWED_COOLDOWNS)
@@ -56,6 +65,22 @@ class UserPreferencesRepository @Inject constructor(
         }
     }
 
+    suspend fun restoreReminderPreferences(preferences: ReminderPreferences) {
+        require(preferences.notificationCooldownHours in ALLOWED_COOLDOWNS)
+        require(preferences.quietHoursStartMinutes in MINUTES_IN_DAY)
+        require(preferences.quietHoursEndMinutes in MINUTES_IN_DAY)
+        context.dataStore.edit {
+            it[NOTIFICATION_COOLDOWN_HOURS] = preferences.notificationCooldownHours
+            it[QUIET_HOURS_ENABLED] = preferences.quietHoursEnabled
+            it[QUIET_HOURS_START_MINUTES] = preferences.quietHoursStartMinutes
+            it[QUIET_HOURS_END_MINUTES] = preferences.quietHoursEndMinutes
+        }
+    }
+
+    suspend fun setAppLockEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[APP_LOCK_ENABLED] = enabled }
+    }
+
     companion object {
         val ALLOWED_COOLDOWNS = setOf(1, 4, 12, 24)
         const val DEFAULT_COOLDOWN_HOURS = 4
@@ -66,5 +91,6 @@ class UserPreferencesRepository @Inject constructor(
         private val QUIET_HOURS_ENABLED = booleanPreferencesKey("quiet_hours_enabled")
         private val QUIET_HOURS_START_MINUTES = intPreferencesKey("quiet_hours_start_minutes")
         private val QUIET_HOURS_END_MINUTES = intPreferencesKey("quiet_hours_end_minutes")
+        private val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
     }
 }

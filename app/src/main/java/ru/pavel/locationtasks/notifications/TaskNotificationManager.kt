@@ -120,6 +120,8 @@ class TaskNotificationManager @Inject constructor(
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicNotification())
             .apply {
                 if (kind == ReminderKind.LOCATION &&
                     transition == GeofenceTransition.ENTER
@@ -153,6 +155,15 @@ class TaskNotificationManager @Inject constructor(
             NotificationManagerCompat.from(context).notify(notificationId(task.id), notification)
         }.isSuccess
     }
+
+    private fun publicNotification() = NotificationCompat.Builder(context, CHANNEL_ID)
+        .setSmallIcon(R.drawable.ic_notification)
+        .setContentTitle(context.getString(R.string.app_name))
+        .setContentText(context.getString(R.string.notification_hidden_details))
+        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+        .setCategory(NotificationCompat.CATEGORY_REMINDER)
+        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        .build()
 
     private fun actionIntent(
         taskId: Long,

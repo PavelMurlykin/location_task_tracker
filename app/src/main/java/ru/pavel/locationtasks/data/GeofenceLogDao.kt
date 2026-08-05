@@ -32,6 +32,9 @@ interface GeofenceLogDao {
     )
     suspend fun trimToSize(entriesToKeep: Int)
 
+    @Query("DELETE FROM geofence_logs")
+    suspend fun deleteAll()
+
     @Transaction
     suspend fun record(entry: GeofenceLogEntity) {
         insert(entry)

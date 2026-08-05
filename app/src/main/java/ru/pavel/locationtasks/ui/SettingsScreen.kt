@@ -3,6 +3,8 @@ package ru.pavel.locationtasks.ui
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +17,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -22,9 +27,13 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,28 +42,35 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.fragment.app.FragmentActivity
 import ru.pavel.locationtasks.data.GeofenceLogEntity
 import ru.pavel.locationtasks.R
 import ru.pavel.locationtasks.data.UserPreferencesRepository
 import ru.pavel.locationtasks.location.BackgroundExecutionState
 import ru.pavel.locationtasks.location.LocationPermissionState
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
+import ru.pavel.locationtasks.data.backup.BackupCodec
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,12 +82,31 @@ fun SettingsScreen(
     val reminderPreferences by viewModel.reminderPreferences.collectAsStateWithLifecycle()
     val geofenceLogs by viewModel.geofenceLogs.collectAsStateWithLifecycle()
     val isCheckingGeofences by viewModel.isCheckingGeofences.collectAsStateWithLifecycle()
+    val securityPreferences by viewModel.securityPreferences.collectAsStateWithLifecycle()
+    val isBackupBusy by viewModel.isBackupBusy.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var permissions by remember { mutableStateOf(LocationPermissionState.from(context)) }
     var backgroundState by remember { mutableStateOf(BackgroundExecutionState.from(context)) }
     var showQuietStartPicker by remember { mutableStateOf(false) }
     var showQuietEndPicker by remember { mutableStateOf(false) }
+    var showExportPasswordDialog by remember { mutableStateOf(false) }
+    var pendingExportPassword by remember { mutableStateOf<String?>(null) }
+    var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(BACKUP_MIME_TYPE),
+    ) { uri ->
+        val password = pendingExportPassword
+        pendingExportPassword = null
+        if (uri != null && password != null) viewModel.exportBackup(uri, password)
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        pendingImportUri = uri
+    }
 
     DisposableEffect(lifecycleOwner, context) {
         val observer = LifecycleEventObserver { _, event ->
@@ -83,6 +118,12 @@ fun SettingsScreen(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(viewModel, context) {
+        viewModel.events.collect { event ->
+            snackbarHostState.showSnackbar(context.getString(event.messageRes))
+        }
     }
 
     Scaffold(
@@ -99,6 +140,7 @@ fun SettingsScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -187,6 +229,93 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                    }
+                }
+            }
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Column(
+                            modifier = Modifier
+                                .padding(start = 12.dp)
+                                .weight(1f),
+                        ) {
+                            Text(
+                                stringResource(R.string.data_protection_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                stringResource(R.string.app_lock_description),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = securityPreferences.appLockEnabled,
+                            onCheckedChange = { enabled ->
+                                if (!enabled) {
+                                    viewModel.setAppLockEnabled(false)
+                                } else {
+                                    val activity = context as? FragmentActivity
+                                    if (activity == null || !canUseDeviceAuthentication(context)) {
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                context.getString(R.string.device_lock_required),
+                                            )
+                                        }
+                                        context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
+                                    } else {
+                                        requestDeviceAuthentication(activity) {
+                                            viewModel.setAppLockEnabled(true)
+                                        }
+                                    }
+                                }
+                            },
+                        )
+                    }
+                    Text(
+                        stringResource(R.string.backup_explanation),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (isBackupBusy) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                    OutlinedButton(
+                        onClick = { showExportPasswordDialog = true },
+                        enabled = !isBackupBusy,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Default.SaveAlt, contentDescription = null)
+                        Text(
+                            stringResource(R.string.backup_export),
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            importLauncher.launch(arrayOf(BACKUP_MIME_TYPE, "*/*"))
+                        },
+                        enabled = !isBackupBusy,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Default.Restore, contentDescription = null)
+                        Text(
+                            stringResource(R.string.backup_import),
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
                     }
                 }
             }
@@ -325,6 +454,27 @@ fun SettingsScreen(
             },
         )
     }
+    if (showExportPasswordDialog) {
+        BackupPasswordDialog(
+            restore = false,
+            onDismiss = { showExportPasswordDialog = false },
+            onConfirm = { password ->
+                showExportPasswordDialog = false
+                pendingExportPassword = password
+                exportLauncher.launch("nearby-tasks-${LocalDate.now()}.$BACKUP_EXTENSION")
+            },
+        )
+    }
+    pendingImportUri?.let { uri ->
+        BackupPasswordDialog(
+            restore = true,
+            onDismiss = { pendingImportUri = null },
+            onConfirm = { password ->
+                pendingImportUri = null
+                viewModel.importBackup(uri, password)
+            },
+        )
+    }
 }
 
 @Composable
@@ -447,3 +597,98 @@ private fun SettingsTimePickerDialog(
 
 private fun formatSettingsTime(minutes: Int): String =
     "%02d:%02d".format(minutes / 60, minutes % 60)
+
+@Composable
+private fun BackupPasswordDialog(
+    restore: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var password by remember { mutableStateOf("") }
+    var confirmation by remember { mutableStateOf("") }
+    var showValidation by remember { mutableStateOf(false) }
+    val valid = password.length >= BackupCodec.MIN_PASSWORD_LENGTH &&
+        (restore || password == confirmation)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                stringResource(
+                    if (restore) R.string.backup_restore_title else R.string.backup_password_title,
+                ),
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    stringResource(
+                        if (restore) {
+                            R.string.backup_restore_warning
+                        } else {
+                            R.string.backup_password_explanation
+                        },
+                    ),
+                )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = {
+                        password = it
+                        showValidation = false
+                    },
+                    label = { Text(stringResource(R.string.backup_password)) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    isError = showValidation && password.length < BackupCodec.MIN_PASSWORD_LENGTH,
+                )
+                if (!restore) {
+                    OutlinedTextField(
+                        value = confirmation,
+                        onValueChange = {
+                            confirmation = it
+                            showValidation = false
+                        },
+                        label = { Text(stringResource(R.string.backup_password_confirm)) },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        isError = showValidation && password != confirmation,
+                    )
+                }
+                if (showValidation && !valid) {
+                    Text(
+                        stringResource(
+                            if (password.length < BackupCodec.MIN_PASSWORD_LENGTH) {
+                                R.string.backup_password_too_short
+                            } else {
+                                R.string.backup_passwords_mismatch
+                            },
+                            BackupCodec.MIN_PASSWORD_LENGTH,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (valid) onConfirm(password) else showValidation = true
+                },
+            ) {
+                Text(
+                    stringResource(
+                        if (restore) R.string.backup_restore_confirm else R.string.backup_export,
+                    ),
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+    )
+}
+
+private const val BACKUP_MIME_TYPE = "application/octet-stream"
+private const val BACKUP_EXTENSION = "ltbackup"

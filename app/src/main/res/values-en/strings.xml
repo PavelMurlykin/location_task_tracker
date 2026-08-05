@@ -160,14 +160,14 @@
 
     <string name="privacy_title">Privacy</string>
     <string name="privacy_data_heading">Data used</string>
-    <string name="privacy_data_text">Tasks, saved places, selected coordinates, and settings are stored locally on your device. When voice input is used, recognition is handled by the system speech service selected on the device; its provider controls audio processing. The app has no proprietary server.</string>
+    <string name="privacy_data_text">Tasks, saved places, selected coordinates, and settings are stored locally on your device. An encrypted backup is created only when you request it and is written to the file you select. Voice input is handled by the selected system speech service. The app has no proprietary server.</string>
     <string name="privacy_location_heading">Location</string>
     <string name="privacy_location_text">With your permission, the app uses precise location, including in the background when the app is closed or not in use. Android needs this to detect entry into a task location and show a reminder. Location history is not recorded.</string>
     <string name="privacy_control_heading">Data control</string>
-    <string name="privacy_control_text">Location reminders can be disabled for each task. Permissions can be revoked in system settings. Clearing app data deletes local tasks and settings.</string>
+    <string name="privacy_control_text">Location reminders can be disabled for each task and permissions can be revoked in system settings. Access to the app can be protected with the Android screen lock. Automatic cloud backup is disabled; data is transferred with a password-encrypted file.</string>
     <string name="privacy_maps_heading">Maps</string>
     <string name="privacy_maps_text">When an API key is configured, the location picker uses Yandex MapKit SDK, which is governed by Yandex privacy policy.</string>
-    <string name="privacy_updated">Updated July 29, 2026</string>
+    <string name="privacy_updated">Updated August 5, 2026</string>
 
     <string name="location_picker_title">Task location</string>
     <string name="search_address_hint">Search address</string>
@@ -263,4 +263,32 @@
     <string name="route_selected_count">Selected errands: %1$d</string>
     <string name="route_selection_hint">Maximum stops: %1$d</string>
     <string name="build_route">Route</string>
+
+    <string name="data_protection_title">Data protection</string>
+    <string name="app_lock_description">Require the Android PIN, password, or biometrics after 30 seconds away. Screenshots will be blocked.</string>
+    <string name="device_lock_required">Set up an Android screen lock first</string>
+    <string name="device_unlock_title">Unlock tasks</string>
+    <string name="device_unlock_description">Verify your identity with Android</string>
+    <string name="app_locked_title">App locked</string>
+    <string name="app_locked_description">Tasks and addresses are hidden until you verify your identity.</string>
+    <string name="unlock_app">Unlock</string>
+    <string name="backup_explanation">Export creates an encrypted local file with tasks, places, and reminder settings. Cloud sync and automatic cloud backup are disabled.</string>
+    <string name="backup_export">Create backup</string>
+    <string name="backup_import">Restore from file</string>
+    <string name="backup_password_title">Backup password</string>
+    <string name="backup_password_explanation">The password encrypts the file and is never stored. Data cannot be restored without it.</string>
+    <string name="backup_password">Password</string>
+    <string name="backup_password_confirm">Repeat password</string>
+    <string name="backup_password_too_short">Minimum password length: %1$d</string>
+    <string name="backup_passwords_mismatch">Passwords do not match</string>
+    <string name="backup_restore_title">Restore data</string>
+    <string name="backup_restore_warning">Enter the file password. Current tasks, places, and reminder settings will be replaced with the backup.</string>
+    <string name="backup_restore_confirm">Restore</string>
+    <string name="backup_export_success">Encrypted backup created</string>
+    <string name="backup_import_success">Data restored and reminders configured</string>
+    <string name="backup_error_password">Wrong password or the file was modified</string>
+    <string name="backup_error_version">This backup version is not supported yet</string>
+    <string name="backup_error_invalid">The file is damaged or is not an app backup</string>
+    <string name="backup_error_storage">The file could not be read or saved</string>
+    <string name="notification_hidden_details">Reminder details are hidden until unlock</string>
 </resources>

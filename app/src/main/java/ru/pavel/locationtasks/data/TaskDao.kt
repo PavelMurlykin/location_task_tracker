@@ -19,6 +19,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id")
     suspend fun getById(id: Long): TaskEntity?
 
+    @Query("SELECT * FROM tasks ORDER BY id ASC")
+    suspend fun getAllForBackup(): List<TaskEntity>
+
     @Query(
         """
         SELECT * FROM tasks
@@ -45,11 +48,17 @@ interface TaskDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(task: TaskEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(tasks: List<TaskEntity>)
+
     @Update
     suspend fun update(task: TaskEntity)
 
     @Delete
     suspend fun delete(task: TaskEntity)
+
+    @Query("DELETE FROM tasks")
+    suspend fun deleteAll()
 
     @Query("UPDATE tasks SET isCompleted = :completed, updatedAt = :updatedAt WHERE id = :id")
     suspend fun setCompleted(id: Long, completed: Boolean, updatedAt: Long)

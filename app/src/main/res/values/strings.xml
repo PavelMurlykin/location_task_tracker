@@ -160,14 +160,14 @@
 
     <string name="privacy_title">Конфиденциальность</string>
     <string name="privacy_data_heading">Какие данные используются</string>
-    <string name="privacy_data_text">Задачи, сохранённые места, выбранные координаты и настройки хранятся локально на вашем устройстве. При использовании голосового ввода распознавание выполняет выбранная на устройстве системная служба, правила обработки аудио зависят от её поставщика. У приложения нет собственного сервера.</string>
+    <string name="privacy_data_text">Задачи, сохранённые места, выбранные координаты и настройки хранятся локально на вашем устройстве. Зашифрованная резервная копия создаётся только по вашей команде в выбранном вами файле. При использовании голосового ввода распознавание выполняет выбранная на устройстве системная служба. У приложения нет собственного сервера.</string>
     <string name="privacy_location_heading">Местоположение</string>
     <string name="privacy_location_text">С вашего разрешения приложение использует точное местоположение, в том числе в фоне, когда приложение закрыто или не используется. Это необходимо, чтобы Android определил вход в место задачи и показал напоминание. История перемещений не записывается.</string>
     <string name="privacy_control_heading">Управление данными</string>
-    <string name="privacy_control_text">Геонапоминания можно отключать отдельно для каждой задачи. Разрешения можно отозвать в системных настройках. Удаление данных приложения удалит локальные задачи и настройки.</string>
+    <string name="privacy_control_text">Геонапоминания можно отключать отдельно для каждой задачи, а разрешения — отзывать в системных настройках. Доступ к приложению можно защитить системной блокировкой Android. Автоматический облачный backup отключён; для переноса данных используется зашифрованный файл с заданным вами паролем.</string>
     <string name="privacy_maps_heading">Карты</string>
     <string name="privacy_maps_text">При настроенном API-ключе экран выбора места использует Yandex MapKit SDK, работа которого регулируется политикой конфиденциальности Яндекса.</string>
-    <string name="privacy_updated">Обновлено 29 июля 2026 года</string>
+    <string name="privacy_updated">Обновлено 5 августа 2026 года</string>
 
     <string name="location_picker_title">Место задачи</string>
     <string name="search_address_hint">Найти адрес</string>
@@ -263,4 +263,32 @@
     <string name="route_selected_count">Выбрано дел: %1$d</string>
     <string name="route_selection_hint">Отметьте до %1$d остановок</string>
     <string name="build_route">Маршрут</string>
+
+    <string name="data_protection_title">Защита данных</string>
+    <string name="app_lock_description">Запрашивать системный PIN, пароль или биометрию после 30 секунд вне приложения. Снимки экрана будут заблокированы.</string>
+    <string name="device_lock_required">Сначала настройте блокировку экрана в Android</string>
+    <string name="device_unlock_title">Разблокировать задачи</string>
+    <string name="device_unlock_description">Подтвердите личность средствами Android</string>
+    <string name="app_locked_title">Приложение заблокировано</string>
+    <string name="app_locked_description">Задачи и адреса скрыты до подтверждения личности.</string>
+    <string name="unlock_app">Разблокировать</string>
+    <string name="backup_explanation">Экспорт создаёт зашифрованный локальный файл с задачами, местами и настройками напоминаний. Облачная синхронизация и автоматический облачный backup отключены.</string>
+    <string name="backup_export">Создать резервную копию</string>
+    <string name="backup_import">Восстановить из файла</string>
+    <string name="backup_password_title">Пароль резервной копии</string>
+    <string name="backup_password_explanation">Пароль шифрует файл и нигде не сохраняется. Без него восстановить данные невозможно.</string>
+    <string name="backup_password">Пароль</string>
+    <string name="backup_password_confirm">Повторите пароль</string>
+    <string name="backup_password_too_short">Используйте не менее %1$d символов</string>
+    <string name="backup_passwords_mismatch">Пароли не совпадают</string>
+    <string name="backup_restore_title">Восстановление данных</string>
+    <string name="backup_restore_warning">Введите пароль файла. Текущие задачи, места и настройки напоминаний будут заменены данными из резервной копии.</string>
+    <string name="backup_restore_confirm">Восстановить</string>
+    <string name="backup_export_success">Зашифрованная резервная копия создана</string>
+    <string name="backup_import_success">Данные восстановлены, напоминания перенастроены</string>
+    <string name="backup_error_password">Неверный пароль или файл был изменён</string>
+    <string name="backup_error_version">Эта версия резервной копии пока не поддерживается</string>
+    <string name="backup_error_invalid">Файл повреждён или не является резервной копией приложения</string>
+    <string name="backup_error_storage">Не удалось прочитать или сохранить файл</string>
+    <string name="notification_hidden_details">Содержимое напоминания скрыто до разблокировки</string>
 </resources>

@@ -33,6 +33,8 @@ class FakeTaskDao(
     override suspend fun getById(id: Long): TaskEntity? =
         tasks.value.firstOrNull { it.id == id }
 
+    override suspend fun getAllForBackup(): List<TaskEntity> = tasks.value.sortedBy(TaskEntity::id)
+
     override suspend fun getTasksToMonitor(): List<TaskEntity> =
         tasks.value
             .filter(TaskEntity::shouldMonitor)
@@ -48,12 +50,21 @@ class FakeTaskDao(
         return id
     }
 
+    override suspend fun insertAll(tasks: List<TaskEntity>) {
+        this.tasks.value = tasks
+        nextId = (tasks.maxOfOrNull(TaskEntity::id) ?: 0L) + 1L
+    }
+
     override suspend fun update(task: TaskEntity) {
         updateTask(task.id) { task }
     }
 
     override suspend fun delete(task: TaskEntity) {
         tasks.value = tasks.value.filterNot { it.id == task.id }
+    }
+
+    override suspend fun deleteAll() {
+        tasks.value = emptyList()
     }
 
     override suspend fun setCompleted(id: Long, completed: Boolean, updatedAt: Long) {
@@ -136,10 +147,18 @@ class FakePlaceDao(
         it.latitude == latitude && it.longitude == longitude
     }
 
+    override suspend fun getAllForBackup(): List<PlaceEntity> =
+        places.value.sortedBy(PlaceEntity::id)
+
     override suspend fun insert(place: PlaceEntity): Long {
         val id = if (place.id == 0L) nextId++ else place.id
         places.value += place.copy(id = id)
         return id
+    }
+
+    override suspend fun insertAll(places: List<PlaceEntity>) {
+        this.places.value = places
+        nextId = (places.maxOfOrNull(PlaceEntity::id) ?: 0L) + 1
     }
 
     override suspend fun update(place: PlaceEntity) {
@@ -148,6 +167,10 @@ class FakePlaceDao(
 
     override suspend fun deleteById(id: Long) {
         places.value = places.value.filterNot { it.id == id }
+    }
+
+    override suspend fun deleteAll() {
+        places.value = emptyList()
     }
 
     fun snapshot(): List<PlaceEntity> = places.value
@@ -178,6 +201,10 @@ class FakeGeofenceLogDao : GeofenceLogDao {
                     .thenByDescending { it.id },
             )
             .take(entriesToKeep)
+    }
+
+    override suspend fun deleteAll() {
+        entries.value = emptyList()
     }
 
     fun snapshot(): List<GeofenceLogEntity> = entries.value

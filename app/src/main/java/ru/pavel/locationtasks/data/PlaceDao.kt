@@ -34,12 +34,21 @@ interface PlaceDao {
     )
     suspend fun getByCoordinates(latitude: Double, longitude: Double): PlaceEntity?
 
+    @Query("SELECT * FROM places ORDER BY id ASC")
+    suspend fun getAllForBackup(): List<PlaceEntity>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(place: PlaceEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(places: List<PlaceEntity>)
 
     @Update
     suspend fun update(place: PlaceEntity)
 
     @Query("DELETE FROM places WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM places")
+    suspend fun deleteAll()
 }
