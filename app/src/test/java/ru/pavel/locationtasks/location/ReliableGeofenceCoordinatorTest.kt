@@ -12,6 +12,7 @@ import ru.pavel.locationtasks.testing.FakeGeofencePermissionSource
 import ru.pavel.locationtasks.testing.FakeGeofencePlatform
 import ru.pavel.locationtasks.testing.FakeGeofenceRetryScheduler
 import ru.pavel.locationtasks.testing.FakeTaskDao
+import ru.pavel.locationtasks.testing.FakeProductTelemetry
 
 class ReliableGeofenceCoordinatorTest {
     @Test
@@ -23,6 +24,7 @@ class ReliableGeofenceCoordinatorTest {
 
         assertEquals(listOf(1L), fixture.platform.registeredTaskIds)
         assertEquals(1, result.activeCount)
+        assertEquals(listOf("success"), fixture.telemetry.geofenceRegistrationOutcomes)
         assertEquals(GeofenceStatus.ACTIVE, fixture.taskDao.getById(1L)?.resolvedGeofenceStatus)
         assertEquals(
             GeofenceLogEntity.EVENT_RESTORE,
@@ -67,6 +69,7 @@ class ReliableGeofenceCoordinatorTest {
         assertTrue(task?.geofenceStatusDetails?.contains("service unavailable") == true)
         assertEquals(1, result.retryableFailureCount)
         assertEquals(1, fixture.retryScheduler.scheduledRetries)
+        assertEquals(listOf("error"), fixture.telemetry.geofenceRegistrationOutcomes)
     }
 
     @Test
@@ -93,18 +96,21 @@ class ReliableGeofenceCoordinatorTest {
         val permissions = FakeGeofencePermissionSource()
         val retryScheduler = FakeGeofenceRetryScheduler()
         val logDao = FakeGeofenceLogDao()
+        val telemetry = FakeProductTelemetry()
         return Fixture(
             taskDao = taskDao,
             platform = platform,
             permissions = permissions,
             retryScheduler = retryScheduler,
             logDao = logDao,
+            telemetry = telemetry,
             coordinator = ReliableGeofenceCoordinator(
                 taskDao = taskDao,
                 geofencePlatform = platform,
                 permissionSource = permissions,
                 retryScheduler = retryScheduler,
                 logDao = logDao,
+                productTelemetry = telemetry,
             ),
         )
     }
@@ -124,6 +130,7 @@ class ReliableGeofenceCoordinatorTest {
         val permissions: FakeGeofencePermissionSource,
         val retryScheduler: FakeGeofenceRetryScheduler,
         val logDao: FakeGeofenceLogDao,
+        val telemetry: FakeProductTelemetry,
         val coordinator: ReliableGeofenceCoordinator,
     )
 }

@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -51,8 +52,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -71,6 +74,9 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 import ru.pavel.locationtasks.data.backup.BackupCodec
+import ru.pavel.locationtasks.BuildConfig
+import ru.pavel.locationtasks.analytics.ProductMetrics
+import ru.pavel.locationtasks.data.AppThemeMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,6 +89,8 @@ fun SettingsScreen(
     val geofenceLogs by viewModel.geofenceLogs.collectAsStateWithLifecycle()
     val isCheckingGeofences by viewModel.isCheckingGeofences.collectAsStateWithLifecycle()
     val securityPreferences by viewModel.securityPreferences.collectAsStateWithLifecycle()
+    val productPreferences by viewModel.productPreferences.collectAsStateWithLifecycle()
+    val productMetrics by viewModel.productMetrics.collectAsStateWithLifecycle()
     val isBackupBusy by viewModel.isBackupBusy.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -151,6 +159,36 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        stringResource(R.string.appearance_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        stringResource(R.string.appearance_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        AppThemeMode.entries.forEach { mode ->
+                            FilterChip(
+                                selected = productPreferences.themeMode == mode,
+                                onClick = { viewModel.setThemeMode(mode) },
+                                label = { Text(stringResource(mode.labelRes())) },
+                            )
+                        }
+                    }
+                }
+            }
+
             Text(
                 stringResource(R.string.repeat_notifications_title),
                 style = MaterialTheme.typography.titleMedium,
@@ -178,7 +216,9 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics(mergeDescendants = true) { },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
@@ -239,7 +279,9 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics(mergeDescendants = true) { },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
@@ -422,6 +464,12 @@ fun SettingsScreen(
                 }
             }
 
+            AnalyticsCard(
+                consent = productPreferences.analyticsConsent,
+                metrics = productMetrics,
+                onConsentChange = viewModel::setAnalyticsConsent,
+            )
+
             Text(
                 stringResource(R.string.local_storage_notice),
                 style = MaterialTheme.typography.bodySmall,
@@ -476,6 +524,112 @@ fun SettingsScreen(
         )
     }
 }
+
+@Composable
+private fun AnalyticsCard(
+    consent: Boolean,
+    metrics: ProductMetrics,
+    onConsentChange: (Boolean) -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics(mergeDescendants = true) { },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.analytics_consent_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        stringResource(R.string.analytics_settings_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = consent, onCheckedChange = onConsentChange)
+            }
+            Text(
+                stringResource(
+                    if (BuildConfig.SENTRY_CONFIGURED || BuildConfig.POSTHOG_CONFIGURED) {
+                        R.string.analytics_provider_configured
+                    } else {
+                        R.string.analytics_local_only
+                    },
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (consent) {
+                MetricRow(
+                    stringResource(R.string.metric_geofence_registration),
+                    formatMetricRate(
+                        metrics.geofenceRegistrationSuccessRate,
+                        metrics.geofenceRegistrationSuccesses,
+                        metrics.geofenceRegistrationAttempts,
+                    ),
+                )
+                MetricRow(
+                    stringResource(R.string.metric_reminder_delivery),
+                    formatMetricRate(
+                        metrics.reminderDeliveryRate,
+                        metrics.remindersDelivered,
+                        metrics.geofenceTriggers,
+                    ),
+                )
+                MetricRow(
+                    stringResource(R.string.metric_notification_completion),
+                    formatMetricRate(
+                        metrics.notificationCompletionRate,
+                        metrics.notificationCompletions,
+                        metrics.notificationsShown,
+                    ),
+                )
+                MetricRow(
+                    stringResource(R.string.metric_retention),
+                    stringResource(
+                        R.string.metric_retention_value,
+                        pluralStringResource(
+                            R.plurals.metric_active_days,
+                            metrics.activeDays,
+                            metrics.activeDays,
+                        ),
+                        if (metrics.retainedDayOne) stringResource(R.string.common_yes) else stringResource(R.string.common_no),
+                        if (metrics.retainedDaySeven) stringResource(R.string.common_yes) else stringResource(R.string.common_no),
+                    ),
+                )
+            }
+            Text(
+                stringResource(R.string.analytics_no_personal_data),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MetricRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Text(label, modifier = Modifier.weight(1f))
+        Text(value, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
+private fun AppThemeMode.labelRes(): Int = when (this) {
+    AppThemeMode.SYSTEM -> R.string.theme_system
+    AppThemeMode.LIGHT -> R.string.theme_light
+    AppThemeMode.DARK -> R.string.theme_dark
+}
+
+private fun formatMetricRate(rate: Double?, value: Int, total: Int): String =
+    if (rate == null) "—" else "%.0f%% · %d/%d".format(rate * 100, value, total)
 
 @Composable
 private fun SettingStatus(

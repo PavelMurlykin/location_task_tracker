@@ -11,9 +11,16 @@ val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use(::load)
 }
-val mapkitApiKey = localProperties.getProperty("MAPKIT_API_KEY")
-    ?: System.getenv("MAPKIT_API_KEY")
-    ?: ""
+fun configuredValue(name: String): String? =
+    localProperties.getProperty(name)?.takeIf(String::isNotBlank)
+        ?: System.getenv(name)?.takeIf(String::isNotBlank)
+val mapkitApiKey = configuredValue("MAPKIT_API_KEY") ?: ""
+val sentryDsn = configuredValue("SENTRY_DSN") ?: ""
+val posthogApiKey = configuredValue("POSTHOG_API_KEY") ?: ""
+val posthogHost = configuredValue("POSTHOG_HOST")
+    ?: "https://eu.i.posthog.com"
+fun quotedBuildConfig(value: String): String =
+    "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
 android {
     namespace = "ru.pavel.locationtasks"
@@ -29,6 +36,15 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "MAPKIT_API_KEY", "\"$mapkitApiKey\"")
         buildConfigField("boolean", "MAPKIT_API_KEY_PRESENT", mapkitApiKey.isNotBlank().toString())
+        buildConfigField("String", "SENTRY_DSN", quotedBuildConfig(sentryDsn))
+        buildConfigField("boolean", "SENTRY_CONFIGURED", sentryDsn.isNotBlank().toString())
+        buildConfigField("String", "POSTHOG_API_KEY", quotedBuildConfig(posthogApiKey))
+        buildConfigField("String", "POSTHOG_HOST", quotedBuildConfig(posthogHost))
+        buildConfigField(
+            "boolean",
+            "POSTHOG_CONFIGURED",
+            posthogApiKey.isNotBlank().toString(),
+        )
     }
 
     buildTypes {
@@ -71,6 +87,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.biometric)
+    implementation(libs.sentry.android)
+    implementation(libs.posthog.core)
     implementation(enforcedPlatform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)

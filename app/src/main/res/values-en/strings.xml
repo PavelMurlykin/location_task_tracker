@@ -160,13 +160,15 @@
 
     <string name="privacy_title">Privacy</string>
     <string name="privacy_data_heading">Data used</string>
-    <string name="privacy_data_text">Tasks, saved places, selected coordinates, and settings are stored locally on your device. An encrypted backup is created only when you request it and is written to the file you select. Voice input is handled by the selected system speech service. The app has no proprietary server.</string>
+    <string name="privacy_data_text">Tasks, saved places, selected coordinates, and settings are stored locally on your device. An encrypted backup is created only when you request it and is written to the file you select. Voice input is handled by the selected system speech service. The app has no task server or cloud sync.</string>
     <string name="privacy_location_heading">Location</string>
     <string name="privacy_location_text">With your permission, the app uses precise location, including in the background when the app is closed or not in use. Android needs this to detect entry into a task location and show a reminder. Location history is not recorded.</string>
     <string name="privacy_control_heading">Data control</string>
     <string name="privacy_control_text">Location reminders can be disabled for each task and permissions can be revoked in system settings. Access to the app can be protected with the Android screen lock. Automatic cloud backup is disabled; data is transferred with a password-encrypted file.</string>
     <string name="privacy_maps_heading">Maps</string>
     <string name="privacy_maps_text">When an API key is configured, the location picker uses Yandex MapKit SDK, which is governed by Yandex privacy policy.</string>
+    <string name="privacy_analytics_heading">Diagnostics and analytics</string>
+    <string name="privacy_analytics_text">Only with your explicit consent, the app calculates local aggregate usage metrics. If the developer configures Sentry or PostHog, technical events, app and device version details, and crash reports may be sent to those services. Task titles, addresses, coordinates, and notes are not sent. Withdrawing consent stops sending and clears local product metrics.</string>
     <string name="privacy_updated">Updated August 5, 2026</string>
 
     <string name="location_picker_title">Task location</string>
@@ -291,4 +293,41 @@
     <string name="backup_error_invalid">The file is damaged or is not an app backup</string>
     <string name="backup_error_storage">The file could not be read or saved</string>
     <string name="notification_hidden_details">Reminder details are hidden until unlock</string>
+    <string name="common_next">Next</string>
+    <string name="onboarding_progress">Step %1$d of %2$d</string>
+    <string name="onboarding_welcome_title">Reminders where you need them</string>
+    <string name="onboarding_welcome_text">Create a task, choose a place, and get a reminder when you enter the selected area.</string>
+    <string name="onboarding_geofence_explanation">A geofence is an invisible circle around a place. Android detects entry and exit without recording your location history.</string>
+    <string name="onboarding_permissions_title">Permissions, one at a time</string>
+    <string name="onboarding_permissions_text">The app asks for precise location first, background access second, and notifications last. Every request is shown separately.</string>
+    <string name="onboarding_permissions_can_change">You can continue without permissions and enable them later in settings. Location reminders will not work until then.</string>
+    <string name="onboarding_allow_location">Allow location</string>
+    <string name="onboarding_allow_background">Allow background access</string>
+    <string name="onboarding_allow_notifications">Allow notifications</string>
+    <string name="onboarding_continue_without_permissions">Continue without permissions</string>
+    <string name="onboarding_privacy_title">You control diagnostics</string>
+    <string name="onboarding_privacy_text">The app can calculate aggregate reliability metrics and send technical events without task content and crash reports. This is optional.</string>
+    <string name="onboarding_start">Start using the app</string>
+    <string name="analytics_consent_title">Help improve the app</string>
+    <string name="analytics_consent_description">Measure geofence success, reminder delivery, notification actions and retention; send crashes when a provider is configured.</string>
+    <string name="analytics_no_personal_data">Task titles, addresses, coordinates, and note text are never sent to analytics. You can withdraw consent in settings.</string>
+    <string name="appearance_title">Appearance</string>
+    <string name="appearance_description">Use the light, dark, or device theme.</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="analytics_settings_description">Optional local metrics and anonymous diagnostics when providers are configured.</string>
+    <string name="analytics_provider_configured">An external diagnostics provider is configured. Data is sent only while consent is enabled.</string>
+    <string name="analytics_local_only">External providers are not configured; metrics stay on this device.</string>
+    <string name="metric_geofence_registration">Geofence registration</string>
+    <string name="metric_reminder_delivery">Reminder delivery</string>
+    <string name="metric_notification_completion">Completed from notification</string>
+    <string name="metric_retention">Retention</string>
+    <string name="metric_retention_value">%1$s · D1 %2$s · D7 %3$s</string>
+    <plurals name="metric_active_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <string name="common_yes">yes</string>
+    <string name="common_no">no</string>
 </resources>

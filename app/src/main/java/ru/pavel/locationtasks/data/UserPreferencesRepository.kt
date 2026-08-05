@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +23,23 @@ data class ReminderPreferences(
 
 data class SecurityPreferences(
     val appLockEnabled: Boolean = false,
+)
+
+enum class AppThemeMode {
+    SYSTEM,
+    LIGHT,
+    DARK;
+
+    companion object {
+        fun fromStorage(value: String?): AppThemeMode =
+            entries.firstOrNull { it.name == value } ?: SYSTEM
+    }
+}
+
+data class ProductPreferences(
+    val onboardingCompleted: Boolean = false,
+    val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    val analyticsConsent: Boolean = false,
 )
 
 @Singleton
@@ -44,6 +62,13 @@ class UserPreferencesRepository @Inject constructor(
     val securityPreferences: Flow<SecurityPreferences> = context.dataStore.data.map { preferences ->
         SecurityPreferences(
             appLockEnabled = preferences[APP_LOCK_ENABLED] ?: false,
+        )
+    }
+    val productPreferences: Flow<ProductPreferences> = context.dataStore.data.map { preferences ->
+        ProductPreferences(
+            onboardingCompleted = preferences[ONBOARDING_COMPLETED] ?: false,
+            themeMode = AppThemeMode.fromStorage(preferences[THEME_MODE]),
+            analyticsConsent = preferences[ANALYTICS_CONSENT] ?: false,
         )
     }
 
@@ -81,6 +106,21 @@ class UserPreferencesRepository @Inject constructor(
         context.dataStore.edit { it[APP_LOCK_ENABLED] = enabled }
     }
 
+    suspend fun completeOnboarding(analyticsConsent: Boolean) {
+        context.dataStore.edit {
+            it[ANALYTICS_CONSENT] = analyticsConsent
+            it[ONBOARDING_COMPLETED] = true
+        }
+    }
+
+    suspend fun setThemeMode(mode: AppThemeMode) {
+        context.dataStore.edit { it[THEME_MODE] = mode.name }
+    }
+
+    suspend fun setAnalyticsConsent(consent: Boolean) {
+        context.dataStore.edit { it[ANALYTICS_CONSENT] = consent }
+    }
+
     companion object {
         val ALLOWED_COOLDOWNS = setOf(1, 4, 12, 24)
         const val DEFAULT_COOLDOWN_HOURS = 4
@@ -92,5 +132,8 @@ class UserPreferencesRepository @Inject constructor(
         private val QUIET_HOURS_START_MINUTES = intPreferencesKey("quiet_hours_start_minutes")
         private val QUIET_HOURS_END_MINUTES = intPreferencesKey("quiet_hours_end_minutes")
         private val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
+        private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+        private val THEME_MODE = stringPreferencesKey("theme_mode")
+        private val ANALYTICS_CONSENT = booleanPreferencesKey("analytics_consent")
     }
 }

@@ -160,13 +160,15 @@
 
     <string name="privacy_title">Конфиденциальность</string>
     <string name="privacy_data_heading">Какие данные используются</string>
-    <string name="privacy_data_text">Задачи, сохранённые места, выбранные координаты и настройки хранятся локально на вашем устройстве. Зашифрованная резервная копия создаётся только по вашей команде в выбранном вами файле. При использовании голосового ввода распознавание выполняет выбранная на устройстве системная служба. У приложения нет собственного сервера.</string>
+    <string name="privacy_data_text">Задачи, сохранённые места, выбранные координаты и настройки хранятся локально на вашем устройстве. Зашифрованная резервная копия создаётся только по вашей команде в выбранном вами файле. При использовании голосового ввода распознавание выполняет выбранная на устройстве системная служба. У приложения нет собственного сервера задач и облачной синхронизации.</string>
     <string name="privacy_location_heading">Местоположение</string>
     <string name="privacy_location_text">С вашего разрешения приложение использует точное местоположение, в том числе в фоне, когда приложение закрыто или не используется. Это необходимо, чтобы Android определил вход в место задачи и показал напоминание. История перемещений не записывается.</string>
     <string name="privacy_control_heading">Управление данными</string>
     <string name="privacy_control_text">Геонапоминания можно отключать отдельно для каждой задачи, а разрешения — отзывать в системных настройках. Доступ к приложению можно защитить системной блокировкой Android. Автоматический облачный backup отключён; для переноса данных используется зашифрованный файл с заданным вами паролем.</string>
     <string name="privacy_maps_heading">Карты</string>
     <string name="privacy_maps_text">При настроенном API-ключе экран выбора места использует Yandex MapKit SDK, работа которого регулируется политикой конфиденциальности Яндекса.</string>
+    <string name="privacy_analytics_heading">Диагностика и аналитика</string>
+    <string name="privacy_analytics_text">Только с вашего явного согласия приложение считает локальные агрегированные показатели использования. Если разработчик настроил Sentry или PostHog, технические события, сведения о версии приложения и устройства и отчёты о сбоях могут отправляться этим сервисам. Названия задач, адреса, координаты и заметки не отправляются. При отзыве согласия отправка прекращается, локальные продуктовые метрики очищаются.</string>
     <string name="privacy_updated">Обновлено 5 августа 2026 года</string>
 
     <string name="location_picker_title">Место задачи</string>
@@ -291,4 +293,43 @@
     <string name="backup_error_invalid">Файл повреждён или не является резервной копией приложения</string>
     <string name="backup_error_storage">Не удалось прочитать или сохранить файл</string>
     <string name="notification_hidden_details">Содержимое напоминания скрыто до разблокировки</string>
+    <string name="common_next">Далее</string>
+    <string name="onboarding_progress">Шаг %1$d из %2$d</string>
+    <string name="onboarding_welcome_title">Напоминания там, где они нужны</string>
+    <string name="onboarding_welcome_text">Создайте задачу, отметьте место и получите напоминание при входе в выбранную область.</string>
+    <string name="onboarding_geofence_explanation">Геозона — это невидимая окружность вокруг места. Android проверяет вход и выход из неё без записи истории ваших перемещений.</string>
+    <string name="onboarding_permissions_title">Разрешения — по очереди</string>
+    <string name="onboarding_permissions_text">Сначала нужна точная геопозиция, затем доступ к ней в фоне и только потом уведомления. Каждый запрос появится отдельно.</string>
+    <string name="onboarding_permissions_can_change">Можно продолжить без разрешений и включить их позже в настройках. Геонапоминания до этого работать не будут.</string>
+    <string name="onboarding_allow_location">Разрешить геопозицию</string>
+    <string name="onboarding_allow_background">Разрешить работу в фоне</string>
+    <string name="onboarding_allow_notifications">Разрешить уведомления</string>
+    <string name="onboarding_continue_without_permissions">Продолжить без разрешений</string>
+    <string name="onboarding_privacy_title">Вы управляете диагностикой</string>
+    <string name="onboarding_privacy_text">Приложение может считать агрегированные показатели надёжности и отправлять технические события без содержимого задач и отчёты о сбоях. Это необязательно.</string>
+    <string name="onboarding_start">Начать работу</string>
+    <string name="analytics_consent_title">Помогать улучшать приложение</string>
+    <string name="analytics_consent_description">Считать успешность геозон, показ напоминаний, действия из уведомлений и удержание; отправлять сбои при настроенном сервисе.</string>
+    <string name="analytics_no_personal_data">Названия задач, адреса, координаты и текст заметок в аналитику не передаются. Согласие можно отозвать в настройках.</string>
+    <string name="appearance_title">Оформление</string>
+    <string name="appearance_description">Выберите светлую, тёмную тему или тему устройства.</string>
+    <string name="theme_system">Системная</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Тёмная</string>
+    <string name="analytics_settings_description">Необязательная локальная статистика и отправка обезличенной диагностики при настроенных сервисах.</string>
+    <string name="analytics_provider_configured">Настроен внешний сервис диагностики. Данные отправляются только при включённом согласии.</string>
+    <string name="analytics_local_only">Внешние сервисы не настроены: показатели считаются только на этом устройстве.</string>
+    <string name="metric_geofence_registration">Регистрация геозон</string>
+    <string name="metric_reminder_delivery">Сработавшие напоминания</string>
+    <string name="metric_notification_completion">Выполнение из уведомления</string>
+    <string name="metric_retention">Удержание</string>
+    <string name="metric_retention_value">%1$s · D1 %2$s · D7 %3$s</string>
+    <plurals name="metric_active_days">
+        <item quantity="one">%d день</item>
+        <item quantity="few">%d дня</item>
+        <item quantity="many">%d дней</item>
+        <item quantity="other">%d дня</item>
+    </plurals>
+    <string name="common_yes">да</string>
+    <string name="common_no">нет</string>
 </resources>

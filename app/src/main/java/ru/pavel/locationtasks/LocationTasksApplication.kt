@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import ru.pavel.locationtasks.analytics.ProductTelemetry
 import ru.pavel.locationtasks.data.TaskDao
 import ru.pavel.locationtasks.location.GeofenceCoordinator
 import ru.pavel.locationtasks.notifications.ReminderWorkScheduler
@@ -19,11 +20,13 @@ class LocationTasksApplication : Application() {
     @Inject lateinit var geofenceCoordinator: GeofenceCoordinator
     @Inject lateinit var taskDao: TaskDao
     @Inject lateinit var reminderScheduler: ReminderWorkScheduler
+    @Inject lateinit var productTelemetry: ProductTelemetry
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
+        productTelemetry.start()
         if (BuildConfig.MAPKIT_API_KEY_PRESENT) {
             MapKitFactory.setApiKey(BuildConfig.MAPKIT_API_KEY)
             MapKitFactory.initialize(this)

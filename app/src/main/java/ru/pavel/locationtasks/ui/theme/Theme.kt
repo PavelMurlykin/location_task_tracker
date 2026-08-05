@@ -10,8 +10,9 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import ru.pavel.locationtasks.data.AppThemeMode
 
-private val LightColors = lightColorScheme(
+internal val LightColorScheme = lightColorScheme(
     primary = Color(0xFF006A62),
     onPrimary = Color.White,
     primaryContainer = Color(0xFF9EF2E7),
@@ -24,7 +25,7 @@ private val LightColors = lightColorScheme(
     surfaceVariant = Color(0xFFDAE5E2),
 )
 
-private val DarkColors = darkColorScheme(
+internal val DarkColorScheme = darkColorScheme(
     primary = Color(0xFF82D5CB),
     onPrimary = Color(0xFF003731),
     primaryContainer = Color(0xFF005048),
@@ -36,17 +37,22 @@ private val DarkColors = darkColorScheme(
 
 @Composable
 fun LocationTasksTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
+    val darkTheme = when (themeMode) {
+        AppThemeMode.SYSTEM -> isSystemInDarkTheme()
+        AppThemeMode.LIGHT -> false
+        AppThemeMode.DARK -> true
+    }
     val colors = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> DarkColors
-        else -> LightColors
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
     }
     MaterialTheme(colorScheme = colors, content = content)
 }

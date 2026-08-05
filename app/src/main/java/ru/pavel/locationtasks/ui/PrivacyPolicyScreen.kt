@@ -56,6 +56,8 @@ fun PrivacyPolicyScreen(onClose: () -> Unit) {
             Text(stringResource(R.string.privacy_control_text))
             PolicyHeading(stringResource(R.string.privacy_maps_heading))
             Text(stringResource(R.string.privacy_maps_text))
+            PolicyHeading(stringResource(R.string.privacy_analytics_heading))
+            Text(stringResource(R.string.privacy_analytics_text))
             Text(
                 stringResource(R.string.privacy_updated),
                 style = MaterialTheme.typography.bodySmall,

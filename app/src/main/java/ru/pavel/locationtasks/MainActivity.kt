@@ -13,12 +13,15 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import ru.pavel.locationtasks.location.GeofenceCoordinator
+import ru.pavel.locationtasks.analytics.ProductTelemetry
+import ru.pavel.locationtasks.data.ProductPreferences
 import ru.pavel.locationtasks.data.UserPreferencesRepository
 import ru.pavel.locationtasks.ui.AppLockLoadingScreen
 import ru.pavel.locationtasks.ui.AppLockScreen
 import ru.pavel.locationtasks.ui.canUseDeviceAuthentication
 import ru.pavel.locationtasks.ui.requestDeviceAuthentication
 import ru.pavel.locationtasks.ui.LocationTasksApp
+import ru.pavel.locationtasks.ui.OnboardingScreen
 import ru.pavel.locationtasks.ui.extractSharedTaskTitle
 import ru.pavel.locationtasks.ui.theme.LocationTasksTheme
 import javax.inject.Inject
@@ -27,10 +30,12 @@ import javax.inject.Inject
 class MainActivity : FragmentActivity() {
     @Inject lateinit var geofenceCoordinator: GeofenceCoordinator
     @Inject lateinit var preferencesRepository: UserPreferencesRepository
+    @Inject lateinit var productTelemetry: ProductTelemetry
     private val requestedTaskId = MutableStateFlow<Long?>(null)
     private val sharedTaskTitle = MutableStateFlow<String?>(null)
     private val appLockEnabled = MutableStateFlow<Boolean?>(null)
     private val appUnlocked = MutableStateFlow(false)
+    private val productPreferences = MutableStateFlow<ProductPreferences?>(null)
     private var stoppedAtElapsedRealtime = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,15 +55,27 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+        lifecycleScope.launch {
+            preferencesRepository.productPreferences.collect(productPreferences::emit)
+        }
         setContent {
             val taskId by requestedTaskId.collectAsState()
             val sharedTitle by sharedTaskTitle.collectAsState()
             val lockEnabled by appLockEnabled.collectAsState()
             val unlocked by appUnlocked.collectAsState()
-            LocationTasksTheme {
+            val productPrefs by productPreferences.collectAsState()
+            LocationTasksTheme(themeMode = productPrefs?.themeMode ?: ru.pavel.locationtasks.data.AppThemeMode.SYSTEM) {
                 when {
-                    lockEnabled == null -> AppLockLoadingScreen()
+                    lockEnabled == null || productPrefs == null -> AppLockLoadingScreen()
                     lockEnabled == true && !unlocked -> AppLockScreen(::requestDeviceUnlock)
+                    productPrefs?.onboardingCompleted == false -> OnboardingScreen(
+                        onComplete = { analyticsConsent ->
+                            lifecycleScope.launch {
+                                preferencesRepository.completeOnboarding(analyticsConsent)
+                                productTelemetry.trackOnboardingCompleted()
+                            }
+                        },
+                    )
                     else -> LocationTasksApp(
                         requestedTaskId = taskId,
                         onTaskRequestConsumed = { requestedTaskId.value = null },

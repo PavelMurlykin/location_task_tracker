@@ -14,6 +14,7 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import ru.pavel.locationtasks.data.GeofenceTransition
+import ru.pavel.locationtasks.analytics.ProductTelemetry
 import ru.pavel.locationtasks.data.TaskDao
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.data.UserPreferencesRepository
@@ -62,7 +63,9 @@ class DueReminderWorker(
             return Result.success()
         }
 
-        if (dependencies.notificationManager().showDueTask(task)) {
+        val delivered = dependencies.notificationManager().showDueTask(task)
+        dependencies.productTelemetry().trackDueReminder(delivered)
+        if (delivered) {
             dependencies.taskDao().setLastNotifiedAt(taskId, now, ReminderKind.DUE.name)
             if (task.snoozedUntil != null) {
                 dependencies.taskDao().setSnoozeState(
@@ -139,4 +142,5 @@ interface ReminderWorkerEntryPoint {
     fun scheduler(): ReminderWorkScheduler
     fun locationDispatcher(): LocationReminderDispatcher
     fun locationClient(): FusedLocationProviderClient
+    fun productTelemetry(): ProductTelemetry
 }

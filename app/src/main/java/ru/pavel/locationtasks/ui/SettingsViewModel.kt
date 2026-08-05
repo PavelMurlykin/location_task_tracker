@@ -14,10 +14,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.receiveAsFlow
 import ru.pavel.locationtasks.R
+import ru.pavel.locationtasks.analytics.ProductMetrics
+import ru.pavel.locationtasks.analytics.ProductMetricsRepository
 import ru.pavel.locationtasks.data.GeofenceLogDao
 import ru.pavel.locationtasks.data.GeofenceLogEntity
 import ru.pavel.locationtasks.data.ReminderPreferences
 import ru.pavel.locationtasks.data.SecurityPreferences
+import ru.pavel.locationtasks.data.ProductPreferences
+import ru.pavel.locationtasks.data.AppThemeMode
 import ru.pavel.locationtasks.data.UserPreferencesRepository
 import ru.pavel.locationtasks.data.backup.BackupOperationException
 import ru.pavel.locationtasks.data.backup.BackupOperationFailure
@@ -31,6 +35,7 @@ class SettingsViewModel @Inject constructor(
     logDao: GeofenceLogDao,
     private val geofenceCoordinator: GeofenceCoordinator,
     private val backupRepository: DataBackupRepository,
+    metricsRepository: ProductMetricsRepository,
 ) : ViewModel() {
     val reminderPreferences: StateFlow<ReminderPreferences> =
         repository.reminderPreferences.stateIn(
@@ -49,6 +54,17 @@ class SettingsViewModel @Inject constructor(
             SharingStarted.WhileSubscribed(5_000),
             SecurityPreferences(),
         )
+    val productPreferences: StateFlow<ProductPreferences> =
+        repository.productPreferences.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            ProductPreferences(),
+        )
+    val productMetrics: StateFlow<ProductMetrics> = metricsRepository.metrics.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        ProductMetrics(),
+    )
     private val _isCheckingGeofences = MutableStateFlow(false)
     val isCheckingGeofences: StateFlow<Boolean> = _isCheckingGeofences.asStateFlow()
     private val _isBackupBusy = MutableStateFlow(false)
@@ -70,6 +86,14 @@ class SettingsViewModel @Inject constructor(
 
     fun setAppLockEnabled(enabled: Boolean) {
         viewModelScope.launch { repository.setAppLockEnabled(enabled) }
+    }
+
+    fun setThemeMode(mode: AppThemeMode) {
+        viewModelScope.launch { repository.setThemeMode(mode) }
+    }
+
+    fun setAnalyticsConsent(consent: Boolean) {
+        viewModelScope.launch { repository.setAnalyticsConsent(consent) }
     }
 
     fun exportBackup(uri: Uri, password: String) {

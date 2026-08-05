@@ -1,6 +1,7 @@
 package ru.pavel.locationtasks.notifications
 
 import kotlinx.coroutines.flow.first
+import ru.pavel.locationtasks.analytics.ProductTelemetry
 import ru.pavel.locationtasks.data.GeofenceLogDao
 import ru.pavel.locationtasks.data.GeofenceLogEntity
 import ru.pavel.locationtasks.data.GeofenceTransition
@@ -18,15 +19,19 @@ class LocationReminderDispatcher @Inject constructor(
     private val preferencesRepository: UserPreferencesRepository,
     private val notificationManager: TaskNotificationManager,
     private val reminderScheduler: ReminderWorkScheduler,
+    private val productTelemetry: ProductTelemetry,
 ) {
     suspend fun dispatch(
         taskId: Long,
         transition: GeofenceTransition,
         now: Long = System.currentTimeMillis(),
     ) {
-        var task = taskDao.getById(taskId) ?: return
+        var task = taskDao.getById(taskId) ?: run {
+            productTelemetry.trackGeofenceTrigger(OUTCOME_TASK_MISSING)
+            return
+        }
         if (!task.shouldMonitor) {
-            logDao.record(task.triggerLog(GeofenceLogEntity.OUTCOME_TASK_INACTIVE, transition, now))
+            recordOutcome(task, GeofenceLogEntity.OUTCOME_TASK_INACTIVE, transition, now)
             return
         }
 
@@ -37,11 +42,14 @@ class LocationReminderDispatcher @Inject constructor(
                 task = task.copy(snoozedUntil = null, skipUntilNextVisit = false)
             }
         } else if (task.skipUntilNextVisit) {
-            logDao.record(task.triggerLog(GeofenceLogEntity.OUTCOME_NEXT_VISIT, transition, now))
+            recordOutcome(task, GeofenceLogEntity.OUTCOME_NEXT_VISIT, transition, now)
             return
         }
 
-        if (!task.resolvedTransitionMode.includes(transition)) return
+        if (!task.resolvedTransitionMode.includes(transition)) {
+            recordOutcome(task, OUTCOME_TRANSITION_FILTERED, transition, now)
+            return
+        }
 
         val recurrenceDueAt = task.dueAt
         if (task.resolvedRecurrence != TaskRecurrence.NONE &&
@@ -51,14 +59,14 @@ class LocationReminderDispatcher @Inject constructor(
             if (transition == GeofenceTransition.ENTER) {
                 reminderScheduler.scheduleLocationReminder(taskId, transition, recurrenceDueAt)
             }
-            logDao.record(task.triggerLog(GeofenceLogEntity.OUTCOME_DEFERRED, transition, now))
+            recordOutcome(task, GeofenceLogEntity.OUTCOME_DEFERRED, transition, now)
             return
         }
 
         val snoozedUntil = task.snoozedUntil
         if (snoozedUntil != null && snoozedUntil > now) {
             reminderScheduler.scheduleLocationReminder(taskId, transition, snoozedUntil)
-            logDao.record(task.triggerLog(GeofenceLogEntity.OUTCOME_DEFERRED, transition, now))
+            recordOutcome(task, GeofenceLogEntity.OUTCOME_DEFERRED, transition, now)
             return
         }
 
@@ -67,7 +75,7 @@ class LocationReminderDispatcher @Inject constructor(
             ReminderSchedule.nextAllowedAt(task, preferences, now)?.let { nextAllowedAt ->
                 reminderScheduler.scheduleLocationReminder(taskId, transition, nextAllowedAt)
             }
-            logDao.record(task.triggerLog(GeofenceLogEntity.OUTCOME_DEFERRED, transition, now))
+            recordOutcome(task, GeofenceLogEntity.OUTCOME_DEFERRED, transition, now)
             return
         }
 
@@ -76,7 +84,7 @@ class LocationReminderDispatcher @Inject constructor(
             task.lastNotifiedTransition == transition.name &&
             now - lastNotifiedAt < ReminderSchedule.cooldownMillis(task, preferences)
         if (cooldownActive) {
-            logDao.record(task.triggerLog(GeofenceLogEntity.OUTCOME_COOLDOWN, transition, now))
+            recordOutcome(task, GeofenceLogEntity.OUTCOME_COOLDOWN, transition, now)
             return
         }
 
@@ -85,12 +93,25 @@ class LocationReminderDispatcher @Inject constructor(
             if (task.snoozedUntil != null) {
                 taskDao.setSnoozeState(taskId, snoozedUntil = null, skipUntilNextVisit = false)
             }
-            logDao.record(task.triggerLog(GeofenceLogEntity.OUTCOME_NOTIFIED, transition, now))
+            recordOutcome(task, GeofenceLogEntity.OUTCOME_NOTIFIED, transition, now)
         } else {
-            logDao.record(
-                task.triggerLog(GeofenceLogEntity.OUTCOME_NOTIFICATIONS_BLOCKED, transition, now),
+            recordOutcome(
+                task,
+                GeofenceLogEntity.OUTCOME_NOTIFICATIONS_BLOCKED,
+                transition,
+                now,
             )
         }
+    }
+
+    private suspend fun recordOutcome(
+        task: TaskEntity,
+        outcome: String,
+        transition: GeofenceTransition,
+        occurredAt: Long,
+    ) {
+        logDao.record(task.triggerLog(outcome, transition, occurredAt))
+        productTelemetry.trackGeofenceTrigger(outcome.lowercase())
     }
 
     private fun TaskEntity.triggerLog(
@@ -105,4 +126,9 @@ class LocationReminderDispatcher @Inject constructor(
         details = transition.name,
         occurredAt = occurredAt,
     )
+
+    companion object {
+        private const val OUTCOME_TASK_MISSING = "task_missing"
+        private const val OUTCOME_TRANSITION_FILTERED = "TRANSITION_FILTERED"
+    }
 }

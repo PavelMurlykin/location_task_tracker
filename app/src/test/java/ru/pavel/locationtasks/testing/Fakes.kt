@@ -3,6 +3,7 @@ package ru.pavel.locationtasks.testing
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import ru.pavel.locationtasks.analytics.ProductTelemetry
 import ru.pavel.locationtasks.data.GeofenceLogDao
 import ru.pavel.locationtasks.data.GeofenceLogEntity
 import ru.pavel.locationtasks.data.GeofenceTransition
@@ -310,5 +311,28 @@ class FakeReminderWorkScheduler : ReminderWorkScheduler {
 
     override fun cancelAll(taskId: Long) {
         allCancellations += taskId
+    }
+}
+
+class FakeProductTelemetry : ProductTelemetry {
+    val geofenceRegistrationOutcomes = mutableListOf<String>()
+    val geofenceTriggerOutcomes = mutableListOf<String>()
+    val notificationActions = mutableListOf<Pair<String, String>>()
+    val exceptions = mutableListOf<Pair<Throwable, String>>()
+
+    override fun start() = Unit
+    override fun trackOnboardingCompleted() = Unit
+    override fun trackGeofenceRegistration(outcome: String) {
+        geofenceRegistrationOutcomes += outcome
+    }
+    override fun trackGeofenceTrigger(outcome: String) {
+        geofenceTriggerOutcomes += outcome
+    }
+    override fun trackNotificationAction(action: String, reminderKind: String) {
+        notificationActions += action to reminderKind
+    }
+    override fun trackDueReminder(delivered: Boolean) = Unit
+    override fun captureException(throwable: Throwable, operation: String) {
+        exceptions += throwable to operation
     }
 }
