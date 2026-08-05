@@ -265,6 +265,11 @@ fun LocationPickerDialog(
                                     }
                                 },
                             )
+                            OpenInYandexMapsButton(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(8.dp),
+                            )
                         }
                         Text(
                             stringResource(R.string.map_long_press_hint),

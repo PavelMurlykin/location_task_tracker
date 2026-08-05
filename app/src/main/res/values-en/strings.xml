@@ -148,6 +148,8 @@
     <string name="no_geofence_events">No events yet. Registration and trigger results will appear here.</string>
     <string name="local_storage_notice">Coordinates and tasks are stored only on this device.</string>
     <string name="privacy_policy">Privacy policy</string>
+    <string name="yandex_maps_terms">Yandex Maps Terms of Use</string>
+    <string name="open_in_yandex_maps">Open in Maps</string>
     <string name="log_geofence_restored">Geofence restored</string>
     <string name="log_geofence_registered">Geofence registered</string>
     <string name="log_registration_error">Registration error</string>

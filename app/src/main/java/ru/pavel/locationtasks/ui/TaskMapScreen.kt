@@ -323,28 +323,34 @@ private fun MapOverview(
                     onLongClick = onCreateTaskAt,
                     modifier = Modifier.fillMaxSize(),
                 )
-                Surface(
-                    shape = MaterialTheme.shapes.medium,
-                    tonalElevation = 3.dp,
+                Column(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    Surface(
+                        shape = MaterialTheme.shapes.medium,
+                        tonalElevation = 3.dp,
                     ) {
-                        Icon(
-                            Icons.Default.AddLocationAlt,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Text(
-                            stringResource(R.string.general_map_long_press_hint),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.AddLocationAlt,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Text(
+                                stringResource(R.string.general_map_long_press_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
+                    OpenInYandexMapsButton()
                 }
                 SmallFloatingActionButton(
                     onClick = onRequestLocation,

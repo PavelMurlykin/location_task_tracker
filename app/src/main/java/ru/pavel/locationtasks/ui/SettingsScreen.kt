@@ -479,6 +479,7 @@ fun SettingsScreen(
                 Text(stringResource(R.string.privacy_policy))
                 Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
             }
+            YandexMapsTermsLink()
         }
     }
 

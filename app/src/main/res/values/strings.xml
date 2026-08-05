@@ -148,6 +148,8 @@
     <string name="no_geofence_events">Событий пока нет. Здесь появятся результаты регистрации и срабатываний.</string>
     <string name="local_storage_notice">Координаты и задачи хранятся только на этом устройстве.</string>
     <string name="privacy_policy">Политика конфиденциальности</string>
+    <string name="yandex_maps_terms">Условия использования сервиса Яндекс.Карты</string>
+    <string name="open_in_yandex_maps">Открыть в Картах</string>
     <string name="log_geofence_restored">Геозона восстановлена</string>
     <string name="log_geofence_registered">Геозона зарегистрирована</string>
     <string name="log_registration_error">Ошибка регистрации</string>
