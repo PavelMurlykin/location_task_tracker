@@ -37,6 +37,7 @@ captures/
 .externalNativeBuild/
 .cxx/
 .android-sdk/
+app/release
 
 # The Gradle wrapper JAR is required to build the project.
 !gradle/wrapper/gradle-wrapper.jar
