@@ -88,50 +88,7 @@ fun YandexLocationMap(
         WeakReference<InputListener>(inputListener)
     }
 
-    DisposableEffect(map, inputListenerReference) {
-        map.addInputListener(inputListenerReference)
-        onDispose {
-            map.removeInputListener(inputListenerReference)
-        }
-    }
-
-    DisposableEffect(mapView, lifecycleOwner) {
-        var started = false
-
-        fun startMap() {
-            if (!started) {
-                MapKitFactory.getInstance().onStart()
-                mapView.onStart()
-                started = true
-            }
-        }
-
-        fun stopMap() {
-            if (started) {
-                mapView.onStop()
-                MapKitFactory.getInstance().onStop()
-                started = false
-            }
-        }
-
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> startMap()
-                Lifecycle.Event.ON_STOP -> stopMap()
-                else -> Unit
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-            startMap()
-        }
-
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            stopMap()
-            mapView.destroy()
-        }
-    }
+    MapViewLifecycle(mapView, map, inputListenerReference, lifecycleOwner)
 
     LaunchedEffect(point) {
         marker.geometry = point
@@ -214,12 +171,7 @@ fun YandexTasksMap(
     val inputListenerReference = remember(inputListener) { WeakReference(inputListener) }
     val tapListenerReference = remember(tapListener) { WeakReference(tapListener) }
 
-    DisposableEffect(map, inputListenerReference) {
-        map.addInputListener(inputListenerReference)
-        onDispose { map.removeInputListener(inputListenerReference) }
-    }
-
-    MapViewLifecycle(mapView, lifecycleOwner)
+    MapViewLifecycle(mapView, map, inputListenerReference, lifecycleOwner)
 
     LaunchedEffect(clusters, primaryColor) {
         markerObjects.clear()
@@ -309,9 +261,11 @@ fun YandexTasksMap(
 @Composable
 private fun MapViewLifecycle(
     mapView: MapView,
+    map: Map,
+    inputListenerReference: WeakReference<InputListener>,
     lifecycleOwner: androidx.lifecycle.LifecycleOwner,
 ) {
-    DisposableEffect(mapView, lifecycleOwner) {
+    DisposableEffect(mapView, map, inputListenerReference, lifecycleOwner) {
         var started = false
 
         fun startMap() {
@@ -330,6 +284,7 @@ private fun MapViewLifecycle(
             }
         }
 
+        map.addInputListener(inputListenerReference)
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START -> startMap()
@@ -344,6 +299,9 @@ private fun MapViewLifecycle(
 
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+            if (map.isValid) {
+                map.removeInputListener(inputListenerReference)
+            }
             stopMap()
             mapView.destroy()
         }
