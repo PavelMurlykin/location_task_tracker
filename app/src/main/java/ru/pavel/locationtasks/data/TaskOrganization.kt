@@ -6,18 +6,6 @@ import java.time.ZoneId
 import java.util.Base64
 import java.util.UUID
 
-enum class TaskCategory {
-    NONE,
-    SHOPPING,
-    WORK,
-    HOME;
-
-    companion object {
-        fun fromStorage(value: String): TaskCategory =
-            entries.firstOrNull { it.name == value } ?: NONE
-    }
-}
-
 enum class TaskRecurrence {
     NONE,
     DAILY,

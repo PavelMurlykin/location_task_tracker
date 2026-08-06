@@ -6,16 +6,29 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [TaskEntity::class, GeofenceLogEntity::class, PlaceEntity::class],
-    version = 6,
+    entities = [
+        TaskEntity::class,
+        GeofenceLogEntity::class,
+        PlaceEntity::class,
+        CategoryEntity::class,
+    ],
+    version = 7,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun geofenceLogDao(): GeofenceLogDao
     abstract fun placeDao(): PlaceDao
+    abstract fun categoryDao(): CategoryDao
 
     companion object {
+        val SEED_CATEGORIES_CALLBACK = object : Callback() {
+            override fun onCreate(db: SupportSQLiteDatabase) {
+                super.onCreate(db)
+                insertDefaultCategories(db)
+            }
+        }
+
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
@@ -168,6 +181,37 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL("ALTER TABLE tasks ADD COLUMN archivedAt INTEGER")
             }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS categories (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        colorArgb INTEGER NOT NULL,
+                        sortOrder INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                insertDefaultCategories(db)
+            }
+        }
+
+        private fun insertDefaultCategories(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                INSERT OR IGNORE INTO categories (
+                    id, name, colorArgb, sortOrder, createdAt, updatedAt
+                ) VALUES
+                    ('SHOPPING', '', ${CategoryEntity.SHOPPING_COLOR}, 0, 0, 0),
+                    ('WORK', '', ${CategoryEntity.WORK_COLOR}, 1, 0, 0),
+                    ('HOME', '', ${CategoryEntity.HOME_COLOR}, 2, 0, 0)
+                """.trimIndent(),
+            )
         }
     }
 }

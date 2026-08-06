@@ -4,9 +4,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import ru.pavel.locationtasks.data.GeofenceStatus
+import ru.pavel.locationtasks.data.CategoryEntity
 import ru.pavel.locationtasks.data.PlaceEntity
 import ru.pavel.locationtasks.data.ReminderPreferences
-import ru.pavel.locationtasks.data.TaskCategory
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.data.TaskPriority
 
@@ -30,7 +30,7 @@ class BackupCodecTest {
                     description = "После работы",
                     dueAt = 1_786_100_000_000,
                     priority = TaskPriority.HIGH.name,
-                    category = TaskCategory.SHOPPING.name,
+                    category = "health",
                     tags = "важно,аптека",
                     latitude = 55.7558,
                     longitude = 37.6176,
@@ -47,6 +47,16 @@ class BackupCodecTest {
                     address = "Москва",
                     latitude = 55.75,
                     longitude = 37.61,
+                ),
+            ),
+            categories = listOf(
+                CategoryEntity(
+                    id = "health",
+                    name = "Здоровье",
+                    colorArgb = 0xFFE53935.toInt(),
+                    sortOrder = 0,
+                    createdAt = 1_786_000_000_000,
+                    updatedAt = 1_786_000_000_000,
                 ),
             ),
         )

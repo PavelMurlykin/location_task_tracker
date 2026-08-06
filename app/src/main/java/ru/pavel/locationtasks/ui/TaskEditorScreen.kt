@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -81,7 +83,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.pavel.locationtasks.data.GeofenceStatus
 import ru.pavel.locationtasks.data.GeofenceTransitionMode
 import ru.pavel.locationtasks.data.TaskPriority
-import ru.pavel.locationtasks.data.TaskCategory
 import ru.pavel.locationtasks.data.TaskRecurrence
 import ru.pavel.locationtasks.R
 import ru.pavel.locationtasks.location.BackgroundExecutionState
@@ -101,6 +102,7 @@ fun TaskEditorScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val savedPlaces by viewModel.savedPlaces.collectAsStateWithLifecycle()
     val recentPlaces by viewModel.recentPlaces.collectAsStateWithLifecycle()
+    val categories by viewModel.categories.collectAsStateWithLifecycle()
     var showDatePicker by remember { mutableStateOf(false) }
     var showDueTimePicker by remember { mutableStateOf(false) }
     var showWindowStartPicker by remember { mutableStateOf(false) }
@@ -231,11 +233,23 @@ fun TaskEditorScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    TaskCategory.entries.forEach { category ->
+                    FilterChip(
+                        selected = state.categoryId == null,
+                        onClick = { viewModel.setCategory(null) },
+                        label = { Text(stringResource(R.string.category_none)) },
+                    )
+                    categories.forEach { category ->
                         FilterChip(
-                            selected = state.category == category,
-                            onClick = { viewModel.setCategory(category) },
-                            label = { Text(stringResource(categoryLabel(category))) },
+                            selected = state.categoryId == category.id,
+                            onClick = { viewModel.setCategory(category.id) },
+                            leadingIcon = {
+                                Box(
+                                    Modifier
+                                        .size(12.dp)
+                                        .background(category.color(), RoundedCornerShape(6.dp)),
+                                )
+                            },
+                            label = { Text(category.localizedName()) },
                         )
                     }
                 }
@@ -971,13 +985,6 @@ private fun dayShortLabel(day: DayOfWeek): Int = when (day) {
     DayOfWeek.FRIDAY -> R.string.day_fri
     DayOfWeek.SATURDAY -> R.string.day_sat
     DayOfWeek.SUNDAY -> R.string.day_sun
-}
-
-private fun categoryLabel(category: TaskCategory): Int = when (category) {
-    TaskCategory.NONE -> R.string.category_none
-    TaskCategory.SHOPPING -> R.string.category_shopping
-    TaskCategory.WORK -> R.string.category_work
-    TaskCategory.HOME -> R.string.category_home
 }
 
 private fun recurrenceLabel(recurrence: TaskRecurrence): Int = when (recurrence) {

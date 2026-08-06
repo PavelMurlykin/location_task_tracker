@@ -98,8 +98,8 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.launch
 import ru.pavel.locationtasks.R
 import ru.pavel.locationtasks.data.GeofenceStatus
+import ru.pavel.locationtasks.data.CategoryEntity
 import ru.pavel.locationtasks.data.PlaceEntity
-import ru.pavel.locationtasks.data.TaskCategory
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.data.TaskPriority
 import ru.pavel.locationtasks.data.TaskRecurrence
@@ -121,6 +121,7 @@ fun TaskListScreen(
 ) {
     val tasks by viewModel.tasks.collectAsState()
     val savedPlaces by viewModel.savedPlaces.collectAsState()
+    val categories by viewModel.categories.collectAsState()
     var criteria by remember { mutableStateOf(TaskListCriteria()) }
     var currentLocation by remember { mutableStateOf<GeoPoint?>(null) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
@@ -210,13 +211,10 @@ fun TaskListScreen(
             currentLocation = currentLocation,
         )
     }
-    val availableCategories = remember(tasks) {
-        tasks.asSequence()
-            .map(TaskEntity::resolvedCategory)
-            .filter { it != TaskCategory.NONE }
-            .distinct()
-            .sortedBy { it.ordinal }
-            .toList()
+    val categoryById = remember(categories) { categories.associateBy(CategoryEntity::id) }
+    val availableCategories = remember(tasks, categories) {
+        val usedCategoryIds = tasks.mapTo(mutableSetOf(), TaskEntity::category)
+        categories.filter { it.id in usedCategoryIds }
     }
     val selectSort: (TaskSort) -> Unit = { sort ->
         criteria = criteria.copy(sort = sort)
@@ -297,8 +295,8 @@ fun TaskListScreen(
             )
             CategorySelector(
                 categories = availableCategories,
-                selected = criteria.category,
-                onSelected = { criteria = criteria.copy(category = it) },
+                selected = criteria.categoryId,
+                onSelected = { criteria = criteria.copy(categoryId = it) },
             )
             FilterAndSortRow(
                 selectedFilter = criteria.quickFilter,
@@ -312,7 +310,7 @@ fun TaskListScreen(
                     section = criteria.section,
                     hasCriteria = criteria.query.isNotBlank() ||
                         criteria.quickFilter != null ||
-                        criteria.category != null,
+                        criteria.categoryId != null,
                     modifier = Modifier.weight(1f),
                 )
             } else {
@@ -329,6 +327,7 @@ fun TaskListScreen(
                     items(visibleTasks, key = TaskEntity::id) { task ->
                         SwipeActionTaskCard(
                             task = task,
+                            category = categoryById[task.category],
                             permissions = permissions,
                             currentLocation = currentLocation,
                             onClick = { onOpenTask(task.id) },
@@ -559,9 +558,9 @@ private fun SectionSelector(
 
 @Composable
 private fun CategorySelector(
-    categories: List<TaskCategory>,
-    selected: TaskCategory?,
-    onSelected: (TaskCategory?) -> Unit,
+    categories: List<CategoryEntity>,
+    selected: String?,
+    onSelected: (String?) -> Unit,
 ) {
     if (categories.isEmpty()) return
     Row(
@@ -578,9 +577,16 @@ private fun CategorySelector(
         )
         categories.forEach { category ->
             FilterChip(
-                selected = selected == category,
-                onClick = { onSelected(category) },
-                label = { Text(stringResource(category.labelRes())) },
+                selected = selected == category.id,
+                onClick = { onSelected(category.id) },
+                leadingIcon = {
+                    Box(
+                        Modifier
+                            .size(12.dp)
+                            .background(category.color(), RoundedCornerShape(6.dp)),
+                    )
+                },
+                label = { Text(category.localizedName()) },
             )
         }
     }
@@ -679,6 +685,7 @@ private fun EmptyTasks(
 @Composable
 private fun SwipeActionTaskCard(
     task: TaskEntity,
+    category: CategoryEntity?,
     permissions: LocationPermissionState,
     currentLocation: GeoPoint?,
     onClick: () -> Unit,
@@ -763,6 +770,7 @@ private fun SwipeActionTaskCard(
 
         TaskCard(
             task = task,
+            category = category,
             permissions = permissions,
             currentLocation = currentLocation,
             onClick = {
@@ -819,6 +827,7 @@ private fun SwipeAction(
 @Composable
 private fun TaskCard(
     task: TaskEntity,
+    category: CategoryEntity?,
     permissions: LocationPermissionState,
     currentLocation: GeoPoint?,
     onClick: () -> Unit,
@@ -884,13 +893,14 @@ private fun TaskCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                val organizationLabels = buildList {
-                    if (task.resolvedCategory != TaskCategory.NONE) {
-                        add(stringResource(task.resolvedCategory.labelRes()))
+                val categoryLabel = category?.localizedName()
+                val organizationLabels = buildList<Pair<String, CategoryEntity?>> {
+                    if (category != null && categoryLabel != null) {
+                        add(categoryLabel to category)
                     }
-                    task.tagNames.forEach { add("#$it") }
+                    task.tagNames.forEach { add("#$it" to null) }
                     if (task.resolvedRecurrence != TaskRecurrence.NONE) {
-                        add(stringResource(task.resolvedRecurrence.labelRes()))
+                        add(stringResource(task.resolvedRecurrence.labelRes()) to null)
                     }
                 }
                 if (organizationLabels.isNotEmpty()) {
@@ -899,17 +909,21 @@ private fun TaskCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        organizationLabels.forEach { label ->
+                        organizationLabels.forEach { (label, labelCategory) ->
+                            val backgroundColor = labelCategory?.color()
+                                ?: MaterialTheme.colorScheme.secondaryContainer
                             Text(
                                 label,
                                 modifier = Modifier
                                     .background(
-                                        MaterialTheme.colorScheme.secondaryContainer,
+                                        backgroundColor,
                                         RoundedCornerShape(8.dp),
                                     )
                                     .padding(horizontal = 7.dp, vertical = 3.dp),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                color = labelCategory?.let {
+                                    contentColorForCategory(backgroundColor)
+                                } ?: MaterialTheme.colorScheme.onSecondaryContainer,
                             )
                         }
                     }
@@ -1065,13 +1079,6 @@ private fun TaskPriority.labelRes(): Int = when (this) {
     TaskPriority.LOW -> R.string.priority_low
     TaskPriority.NORMAL -> R.string.priority_normal
     TaskPriority.HIGH -> R.string.priority_high
-}
-
-private fun TaskCategory.labelRes(): Int = when (this) {
-    TaskCategory.NONE -> R.string.category_none
-    TaskCategory.SHOPPING -> R.string.category_shopping
-    TaskCategory.WORK -> R.string.category_work
-    TaskCategory.HOME -> R.string.category_home
 }
 
 private fun TaskRecurrence.labelRes(): Int = when (this) {

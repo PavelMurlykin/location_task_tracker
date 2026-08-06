@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ru.pavel.locationtasks.R
+import ru.pavel.locationtasks.data.CategoryEntity
+import ru.pavel.locationtasks.data.CategoryRepository
 import ru.pavel.locationtasks.data.GeofenceStatus
 import ru.pavel.locationtasks.data.PlaceEntity
 import ru.pavel.locationtasks.data.PlaceRepository
@@ -23,6 +25,7 @@ import javax.inject.Inject
 class TaskListViewModel @Inject constructor(
     private val repository: TaskRepository,
     private val placeRepository: PlaceRepository,
+    categoryRepository: CategoryRepository,
 ) : ViewModel() {
     private val undoOperations = mutableMapOf<Long, UndoOperation>()
     private var nextUndoToken = 1L
@@ -35,6 +38,11 @@ class TaskListViewModel @Inject constructor(
         initialValue = emptyList(),
     )
     val savedPlaces: StateFlow<List<PlaceEntity>> = placeRepository.savedPlaces.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList(),
+    )
+    val categories: StateFlow<List<CategoryEntity>> = categoryRepository.categories.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList(),

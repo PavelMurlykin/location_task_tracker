@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material3.AlertDialog
@@ -82,6 +83,7 @@ import ru.pavel.locationtasks.data.AppThemeMode
 @Composable
 fun SettingsScreen(
     onClose: () -> Unit,
+    onOpenCategories: () -> Unit,
     onOpenPrivacy: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -186,6 +188,37 @@ fun SettingsScreen(
                             )
                         }
                     }
+                }
+            }
+
+            Card(
+                onClick = onOpenCategories,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Default.Category,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
+                        Text(
+                            stringResource(R.string.categories_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            stringResource(R.string.categories_settings_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Filled.OpenInNew,
+                        contentDescription = stringResource(R.string.categories_open),
+                    )
                 }
             }
 

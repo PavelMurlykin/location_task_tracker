@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import ru.pavel.locationtasks.data.AppDatabase
+import ru.pavel.locationtasks.data.CategoryDao
 import ru.pavel.locationtasks.data.GeofenceLogDao
 import ru.pavel.locationtasks.data.GeofenceStatus
 import ru.pavel.locationtasks.data.PlaceDao
@@ -44,6 +45,7 @@ class DataBackupRepository @Inject constructor(
     private val database: AppDatabase,
     private val taskDao: TaskDao,
     private val placeDao: PlaceDao,
+    private val categoryDao: CategoryDao,
     private val logDao: GeofenceLogDao,
     private val preferencesRepository: UserPreferencesRepository,
     private val geofenceCoordinator: GeofenceCoordinator,
@@ -59,6 +61,7 @@ class DataBackupRepository @Inject constructor(
                         reminderPreferences = reminderPreferences,
                         tasks = taskDao.getAllForBackup(),
                         places = placeDao.getAllForBackup(),
+                        categories = categoryDao.getAllForBackup(),
                     )
                 }
                 val encoded = BackupCodec.encode(snapshot, password)
@@ -92,6 +95,7 @@ class DataBackupRepository @Inject constructor(
                 val importedTasks = snapshot.tasks.map { it.forRestore() }
                 val previousTasks = taskDao.getAllForBackup()
                 val previousPlaces = placeDao.getAllForBackup()
+                val previousCategories = categoryDao.getAllForBackup()
                 val previousPreferences = preferencesRepository.reminderPreferences.first()
 
                 previousTasks.forEach { task ->
@@ -102,7 +106,9 @@ class DataBackupRepository @Inject constructor(
                     database.withTransaction {
                         logDao.deleteAll()
                         placeDao.deleteAll()
+                        categoryDao.deleteAll()
                         taskDao.deleteAll()
+                        categoryDao.insertAll(snapshot.categories)
                         taskDao.insertAll(importedTasks)
                         placeDao.insertAll(snapshot.places)
                     }
@@ -110,7 +116,9 @@ class DataBackupRepository @Inject constructor(
                 } catch (exception: Exception) {
                     database.withTransaction {
                         placeDao.deleteAll()
+                        categoryDao.deleteAll()
                         taskDao.deleteAll()
+                        categoryDao.insertAll(previousCategories)
                         taskDao.insertAll(previousTasks)
                         placeDao.insertAll(previousPlaces)
                     }

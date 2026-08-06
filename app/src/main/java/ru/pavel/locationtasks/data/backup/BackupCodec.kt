@@ -1,5 +1,6 @@
 package ru.pavel.locationtasks.data.backup
 
+import ru.pavel.locationtasks.data.CategoryEntity
 import ru.pavel.locationtasks.data.PlaceEntity
 import ru.pavel.locationtasks.data.ReminderPreferences
 import ru.pavel.locationtasks.data.TaskEntity
@@ -23,6 +24,7 @@ data class BackupSnapshot(
     val reminderPreferences: ReminderPreferences,
     val tasks: List<TaskEntity>,
     val places: List<PlaceEntity>,
+    val categories: List<CategoryEntity> = CategoryEntity.legacyDefaults(createdAt),
 )
 
 enum class BackupCodecFailure {
@@ -137,6 +139,8 @@ object BackupCodec {
                 snapshot.tasks.forEach { it.writeTo(output) }
                 output.writeInt(snapshot.places.size)
                 snapshot.places.forEach { it.writeTo(output) }
+                output.writeInt(snapshot.categories.size)
+                snapshot.categories.forEach { it.writeTo(output) }
             }
             bytes.toByteArray().also {
                 if (it.size > MAX_BACKUP_FILE_BYTES) {
@@ -148,7 +152,8 @@ object BackupCodec {
     private fun decodePayload(payload: ByteArray): BackupSnapshot =
         DataInputStream(ByteArrayInputStream(payload)).use { input ->
             if (input.readInt() != PAYLOAD_MAGIC) invalidFile()
-            if (input.readInt() != PAYLOAD_VERSION) unsupportedVersion()
+            val payloadVersion = input.readInt()
+            if (payloadVersion !in MIN_PAYLOAD_VERSION..PAYLOAD_VERSION) unsupportedVersion()
             val createdAt = input.readLong()
             if (createdAt <= 0) invalidFile()
             val preferences = input.readReminderPreferences()
@@ -156,8 +161,15 @@ object BackupCodec {
             val tasks = List(taskCount) { input.readTask() }
             val placeCount = input.readBoundedCount(MAX_PLACES)
             val places = List(placeCount) { input.readPlace() }
+            val categories = if (payloadVersion >= 2) {
+                val categoryCount = input.readBoundedCount(MAX_CATEGORIES)
+                List(categoryCount) { input.readCategory() }
+            } else {
+                CategoryEntity.legacyDefaults(createdAt)
+            }
             if (input.available() != 0) invalidFile()
-            BackupSnapshot(createdAt, preferences, tasks, places).also(::validateSnapshot)
+            BackupSnapshot(createdAt, preferences, tasks, places, categories)
+                .also(::validateSnapshot)
         }
 
     private fun deriveKey(password: CharArray, salt: ByteArray, iterations: Int): ByteArray {
@@ -178,7 +190,8 @@ object BackupCodec {
     private fun validateSnapshot(snapshot: BackupSnapshot) {
         if (snapshot.createdAt <= 0 ||
             snapshot.tasks.size > MAX_TASKS ||
-            snapshot.places.size > MAX_PLACES
+            snapshot.places.size > MAX_PLACES ||
+            snapshot.categories.size > MAX_CATEGORIES
         ) invalidFile()
         if (snapshot.reminderPreferences.notificationCooldownHours !in
             ru.pavel.locationtasks.data.UserPreferencesRepository.ALLOWED_COOLDOWNS ||
@@ -206,6 +219,23 @@ object BackupCodec {
                 .filter(String::isNotEmpty)
                 .let { it.toSet().size != it.size }
         ) invalidFile()
+        if (snapshot.categories.map(CategoryEntity::id).toSet().size != snapshot.categories.size ||
+            snapshot.categories.any { category ->
+                category.id.isBlank() ||
+                    category.name.length > ru.pavel.locationtasks.data.CategoryRepository
+                        .MAX_CATEGORY_NAME_LENGTH ||
+                    (category.name.isBlank() && category.id !in LEGACY_CATEGORY_IDS)
+            } ||
+            snapshot.categories.map(CategoryEntity::name)
+                .filter(String::isNotBlank)
+                .map(String::lowercase)
+                .let { it.toSet().size != it.size }
+        ) invalidFile()
+        val categoryIds = snapshot.categories.mapTo(mutableSetOf(), CategoryEntity::id)
+        val hasUnknownCategory = snapshot.tasks.any {
+            it.category != CategoryEntity.NO_CATEGORY_ID && it.category !in categoryIds
+        }
+        if (hasUnknownCategory) invalidFile()
     }
 
     private fun ReminderPreferences.writeTo(output: DataOutputStream) {
@@ -312,6 +342,24 @@ object BackupCodec {
         createdAt = readLong(),
     )
 
+    private fun CategoryEntity.writeTo(output: DataOutputStream) = with(output) {
+        writeSizedString(id)
+        writeSizedString(name)
+        writeInt(colorArgb)
+        writeInt(sortOrder)
+        writeLong(createdAt)
+        writeLong(updatedAt)
+    }
+
+    private fun DataInputStream.readCategory() = CategoryEntity(
+        id = readSizedString(),
+        name = readSizedString(),
+        colorArgb = readInt(),
+        sortOrder = readInt(),
+        createdAt = readLong(),
+        updatedAt = readLong(),
+    )
+
     private fun DataOutputStream.writeSizedString(value: String) {
         val bytes = value.toByteArray(Charsets.UTF_8)
         if (bytes.size > MAX_STRING_BYTES) invalidFile()
@@ -381,11 +429,18 @@ object BackupCodec {
     private const val MAX_STRING_BYTES = 1024 * 1024
     private const val MAX_TASKS = 10_000
     private const val MAX_PLACES = 10_000
+    private const val MAX_CATEGORIES = 500
     private val MINUTES_IN_DAY = 0 until 24 * 60
     private const val FILE_MAGIC = 0x4C54424B
     private const val FILE_VERSION = 1
     private const val PAYLOAD_MAGIC = 0x4C544442
-    private const val PAYLOAD_VERSION = 1
+    private const val MIN_PAYLOAD_VERSION = 1
+    private const val PAYLOAD_VERSION = 2
+    private val LEGACY_CATEGORY_IDS = setOf(
+        CategoryEntity.SHOPPING_ID,
+        CategoryEntity.WORK_ID,
+        CategoryEntity.HOME_ID,
+    )
     private const val KDF_ALGORITHM = "PBKDF2WithHmacSHA256"
     private const val KDF_ITERATIONS = 210_000
     private const val MIN_KDF_ITERATIONS = 100_000

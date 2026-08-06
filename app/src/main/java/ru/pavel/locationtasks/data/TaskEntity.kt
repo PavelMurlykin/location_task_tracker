@@ -14,7 +14,7 @@ data class TaskEntity(
     @ColumnInfo(defaultValue = "'NORMAL'")
     val priority: String = TaskPriority.NORMAL.name,
     @ColumnInfo(defaultValue = "'NONE'")
-    val category: String = TaskCategory.NONE.name,
+    val category: String = CategoryEntity.NO_CATEGORY_ID,
     @ColumnInfo(defaultValue = "''")
     val tags: String = "",
     @ColumnInfo(defaultValue = "''")
@@ -60,9 +60,6 @@ data class TaskEntity(
 
     val resolvedPriority: TaskPriority
         get() = TaskPriority.fromStorage(priority)
-
-    val resolvedCategory: TaskCategory
-        get() = TaskCategory.fromStorage(category)
 
     val resolvedRecurrence: TaskRecurrence
         get() = TaskRecurrence.fromStorage(recurrence)

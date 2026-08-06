@@ -1,7 +1,6 @@
 package ru.pavel.locationtasks.ui
 
 import ru.pavel.locationtasks.data.TaskEntity
-import ru.pavel.locationtasks.data.TaskCategory
 import java.time.Instant
 import java.time.ZoneId
 import kotlin.math.atan2
@@ -38,7 +37,7 @@ data class TaskListCriteria(
     val section: TaskSection = TaskSection.ACTIVE,
     val query: String = "",
     val quickFilter: TaskQuickFilter? = null,
-    val category: TaskCategory? = null,
+    val categoryId: String? = null,
     val sort: TaskSort = TaskSort.DUE_DATE,
 )
 
@@ -67,7 +66,7 @@ fun filterAndSortTasks(
                 task.tagNames.any { it.contains(normalizedQuery, ignoreCase = true) }
         }
         .filter { task ->
-            criteria.category == null || task.resolvedCategory == criteria.category
+            criteria.categoryId == null || task.category == criteria.categoryId
         }
         .filter { task ->
             when (criteria.quickFilter) {

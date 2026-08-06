@@ -15,6 +15,7 @@ private object Routes {
         "&initialLatitude={initialLatitude}&initialLongitude={initialLongitude}"
     const val MAP = "map"
     const val SETTINGS = "settings"
+    const val CATEGORIES = "categories"
     const val PRIVACY = "privacy"
 
     fun task(taskId: Long) = "task/$taskId"
@@ -104,8 +105,12 @@ fun LocationTasksApp(
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onClose = navController::popBackStack,
+                onOpenCategories = { navController.navigate(Routes.CATEGORIES) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
             )
+        }
+        composable(Routes.CATEGORIES) {
+            CategoryManagementScreen(onClose = navController::popBackStack)
         }
         composable(Routes.PRIVACY) {
             PrivacyPolicyScreen(onClose = navController::popBackStack)

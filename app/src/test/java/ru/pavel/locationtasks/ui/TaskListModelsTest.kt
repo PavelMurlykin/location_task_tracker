@@ -3,7 +3,7 @@ package ru.pavel.locationtasks.ui
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import ru.pavel.locationtasks.data.TaskEntity
-import ru.pavel.locationtasks.data.TaskCategory
+import ru.pavel.locationtasks.data.CategoryEntity
 import ru.pavel.locationtasks.data.TaskPriority
 import ru.pavel.locationtasks.data.encodeTags
 import java.time.LocalDate
@@ -144,15 +144,15 @@ class TaskListModelsTest {
     fun `category filter and tag search organize tasks`() {
         val tasks = listOf(
             task(1).copy(
-                category = TaskCategory.SHOPPING.name,
+                category = CategoryEntity.SHOPPING_ID,
                 tags = encodeTags(listOf("срочно")),
             ),
-            task(2).copy(category = TaskCategory.WORK.name),
+            task(2).copy(category = CategoryEntity.WORK_ID),
         )
 
         val byCategory = filterAndSortTasks(
             tasks,
-            TaskListCriteria(category = TaskCategory.SHOPPING),
+            TaskListCriteria(categoryId = CategoryEntity.SHOPPING_ID),
             currentLocation = null,
             nowMillis = now,
             zoneId = zoneId,

@@ -11,6 +11,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import ru.pavel.locationtasks.data.AppDatabase
+import ru.pavel.locationtasks.data.CategoryDao
 import ru.pavel.locationtasks.data.GeofenceLogDao
 import ru.pavel.locationtasks.data.PlaceDao
 import ru.pavel.locationtasks.data.TaskDao
@@ -28,6 +29,8 @@ object AppModule {
             .addMigrations(AppDatabase.MIGRATION_3_4)
             .addMigrations(AppDatabase.MIGRATION_4_5)
             .addMigrations(AppDatabase.MIGRATION_5_6)
+            .addMigrations(AppDatabase.MIGRATION_6_7)
+            .addCallback(AppDatabase.SEED_CATEGORIES_CALLBACK)
             .build()
 
     @Provides
@@ -38,6 +41,9 @@ object AppModule {
 
     @Provides
     fun providePlaceDao(database: AppDatabase): PlaceDao = database.placeDao()
+
+    @Provides
+    fun provideCategoryDao(database: AppDatabase): CategoryDao = database.categoryDao()
 
     @Provides
     @Singleton

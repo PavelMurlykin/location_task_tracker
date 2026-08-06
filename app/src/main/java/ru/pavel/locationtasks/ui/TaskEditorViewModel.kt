@@ -17,12 +17,13 @@ import ru.pavel.locationtasks.data.PlaceEntity
 import ru.pavel.locationtasks.data.PlaceRepository
 import ru.pavel.locationtasks.data.ChecklistCodec
 import ru.pavel.locationtasks.data.ChecklistItem
+import ru.pavel.locationtasks.data.CategoryEntity
+import ru.pavel.locationtasks.data.CategoryRepository
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.data.TaskRepository
 import ru.pavel.locationtasks.data.GeofenceStatus
 import ru.pavel.locationtasks.data.GeofenceTransitionMode
 import ru.pavel.locationtasks.data.TaskPriority
-import ru.pavel.locationtasks.data.TaskCategory
 import ru.pavel.locationtasks.data.TaskRecurrence
 import ru.pavel.locationtasks.data.encodeTags
 import ru.pavel.locationtasks.data.parseTags
@@ -43,7 +44,7 @@ data class TaskEditorState(
     val description: String = "",
     val dueAt: Long? = null,
     val priority: TaskPriority = TaskPriority.NORMAL,
-    val category: TaskCategory = TaskCategory.NONE,
+    val categoryId: String? = null,
     val tagsInput: String = "",
     val checklist: List<ChecklistItem> = emptyList(),
     val recurrence: TaskRecurrence = TaskRecurrence.NONE,
@@ -78,6 +79,7 @@ class TaskEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: TaskRepository,
     private val placeRepository: PlaceRepository,
+    categoryRepository: CategoryRepository,
     private val locationResolver: LocationResolver,
 ) : ViewModel() {
     private val taskId = savedStateHandle.get<Long>("taskId") ?: 0L
@@ -97,6 +99,11 @@ class TaskEditorViewModel @Inject constructor(
         emptyList(),
     )
     val recentPlaces: StateFlow<List<PlaceEntity>> = placeRepository.recentPlaces.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        emptyList(),
+    )
+    val categories: StateFlow<List<CategoryEntity>> = categoryRepository.categories.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
         emptyList(),
@@ -130,7 +137,9 @@ class TaskEditorViewModel @Inject constructor(
                     description = task.description,
                     dueAt = task.dueAt,
                     priority = task.resolvedPriority,
-                    category = task.resolvedCategory,
+                    categoryId = task.category.takeUnless {
+                        it == CategoryEntity.NO_CATEGORY_ID
+                    },
                     tagsInput = task.tagNames.joinToString(", "),
                     checklist = task.checklistItems,
                     recurrence = task.resolvedRecurrence,
@@ -202,7 +211,7 @@ class TaskEditorViewModel @Inject constructor(
         copy(dueAt = date.atTime(time).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
     }
     fun setPriority(value: TaskPriority) = update { copy(priority = value) }
-    fun setCategory(value: TaskCategory) = update { copy(category = value) }
+    fun setCategory(value: String?) = update { copy(categoryId = value) }
     fun setTagsInput(value: String) = update { copy(tagsInput = value) }
     fun setRecurrence(value: TaskRecurrence) = update { copy(recurrence = value) }
     fun addChecklistItem(title: String) {
@@ -335,7 +344,7 @@ class TaskEditorViewModel @Inject constructor(
                 description = current.description.trim(),
                 dueAt = current.dueAt,
                 priority = current.priority.name,
-                category = current.category.name,
+                category = current.categoryId ?: CategoryEntity.NO_CATEGORY_ID,
                 tags = encodeTags(parseTags(current.tagsInput)),
                 checklistData = ChecklistCodec.encode(current.checklist),
                 recurrence = current.recurrence.name,
