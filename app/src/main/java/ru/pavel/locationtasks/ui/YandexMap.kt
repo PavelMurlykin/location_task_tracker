@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -53,6 +54,7 @@ fun YandexLocationMap(
     val point = remember(latitude, longitude) { Point(latitude, longitude) }
     val mapView = remember(context) { MapView(context) }
     val map = remember(mapView) { mapView.mapWindow.map }
+    val hasPositionedCamera = remember(map) { mutableStateOf(false) }
     val marker = remember(map) {
         val drawable = requireNotNull(
             ContextCompat.getDrawable(context, R.drawable.ic_task_location_pin),
@@ -93,10 +95,22 @@ fun YandexLocationMap(
     LaunchedEffect(point) {
         marker.geometry = point
         radiusCircle.geometry = Circle(point, radius)
+        val currentCamera = map.cameraPosition
+        val nextCamera = if (hasPositionedCamera.value) {
+            CameraPosition(
+                point,
+                currentCamera.zoom,
+                currentCamera.azimuth,
+                currentCamera.tilt,
+            )
+        } else {
+            CameraPosition(point, DEFAULT_MAP_ZOOM, 0f, 0f)
+        }
         map.move(
-            CameraPosition(point, DEFAULT_MAP_ZOOM, 0f, 0f),
+            nextCamera,
             Animation(Animation.Type.SMOOTH, CAMERA_ANIMATION_SECONDS),
         )
+        hasPositionedCamera.value = true
     }
 
     LaunchedEffect(point, radius) {
