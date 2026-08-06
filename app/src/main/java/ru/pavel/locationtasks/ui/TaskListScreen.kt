@@ -1086,6 +1086,7 @@ private fun TaskRecurrence.labelRes(): Int = when (this) {
     TaskRecurrence.DAILY -> R.string.recurrence_daily
     TaskRecurrence.WEEKLY -> R.string.recurrence_weekly
     TaskRecurrence.MONTHLY -> R.string.recurrence_monthly
+    TaskRecurrence.YEARLY -> R.string.recurrence_yearly
 }
 
 private fun GeofenceStatus.labelRes(): Int = when (this) {

@@ -158,7 +158,7 @@ object BackupCodec {
             if (createdAt <= 0) invalidFile()
             val preferences = input.readReminderPreferences()
             val taskCount = input.readBoundedCount(MAX_TASKS)
-            val tasks = List(taskCount) { input.readTask() }
+            val tasks = List(taskCount) { input.readTask(payloadVersion) }
             val placeCount = input.readBoundedCount(MAX_PLACES)
             val places = List(placeCount) { input.readPlace() }
             val categories = if (payloadVersion >= 2) {
@@ -204,7 +204,15 @@ object BackupCodec {
                     (task.latitude == null) != (task.longitude == null) ||
                     task.latitude?.let { it !in -90.0..90.0 } == true ||
                     task.longitude?.let { it !in -180.0..180.0 } == true ||
-                    task.geofenceRadiusMeters !in 100f..1_000f
+                    task.geofenceRadiusMeters !in 100f..1_000f ||
+                    task.recurrenceInterval !in
+                    ru.pavel.locationtasks.data.MIN_RECURRENCE_INTERVAL..
+                    ru.pavel.locationtasks.data.MAX_RECURRENCE_INTERVAL ||
+                    task.recurrenceDaysMask !in 0..
+                    ru.pavel.locationtasks.data.ALL_WEEK_DAYS_MASK ||
+                    task.recurrenceDayOfMonth?.let { it !in 1..31 } == true ||
+                    task.recurrenceAnchorAt?.let { it <= 0 } == true ||
+                    task.recurrenceEndAt?.let { it <= 0 } == true
             }
         ) invalidFile()
         if (snapshot.places.map(PlaceEntity::id).toSet().size != snapshot.places.size ||
@@ -262,6 +270,11 @@ object BackupCodec {
         writeSizedString(tags)
         writeSizedString(checklistData)
         writeSizedString(recurrence)
+        writeInt(recurrenceInterval)
+        writeInt(recurrenceDaysMask)
+        writeNullableInt(recurrenceDayOfMonth)
+        writeNullableLong(recurrenceAnchorAt)
+        writeNullableLong(recurrenceEndAt)
         writeBoolean(isCompleted)
         writeBoolean(isArchived)
         writeNullableLong(archivedAt)
@@ -286,39 +299,60 @@ object BackupCodec {
         writeLong(updatedAt)
     }
 
-    private fun DataInputStream.readTask() = TaskEntity(
-        id = readLong(),
-        title = readSizedString(),
-        description = readSizedString(),
-        dueAt = readNullableLong(),
-        priority = readSizedString(),
-        category = readSizedString(),
-        tags = readSizedString(),
-        checklistData = readSizedString(),
-        recurrence = readSizedString(),
-        isCompleted = readBoolean(),
-        isArchived = readBoolean(),
-        archivedAt = readNullableLong(),
-        latitude = readNullableDouble(),
-        longitude = readNullableDouble(),
-        address = readNullableString(),
-        geofenceRadiusMeters = readFloat(),
-        geofenceEnabled = readBoolean(),
-        geofenceTransitionMode = readSizedString(),
-        notificationCooldownMinutes = readNullableInt(),
-        allowedDaysMask = readInt(),
-        reminderWindowStartMinutes = readNullableInt(),
-        reminderWindowEndMinutes = readNullableInt(),
-        snoozedUntil = readNullableLong(),
-        skipUntilNextVisit = readBoolean(),
-        lastNotifiedAt = readNullableLong(),
-        lastNotifiedTransition = readNullableString(),
-        geofenceStatus = readSizedString(),
-        geofenceStatusDetails = readNullableString(),
-        geofenceRegisteredAt = readNullableLong(),
-        createdAt = readLong(),
-        updatedAt = readLong(),
-    )
+    private fun DataInputStream.readTask(payloadVersion: Int): TaskEntity {
+        val id = readLong()
+        val title = readSizedString()
+        val description = readSizedString()
+        val dueAt = readNullableLong()
+        val priority = readSizedString()
+        val category = readSizedString()
+        val tags = readSizedString()
+        val checklistData = readSizedString()
+        val recurrence = readSizedString()
+        val recurrenceInterval = if (payloadVersion >= 3) readInt() else 1
+        val recurrenceDaysMask = if (payloadVersion >= 3) readInt() else 0
+        val recurrenceDayOfMonth = if (payloadVersion >= 3) readNullableInt() else null
+        val recurrenceAnchorAt = if (payloadVersion >= 3) readNullableLong() else dueAt
+        val recurrenceEndAt = if (payloadVersion >= 3) readNullableLong() else null
+        return TaskEntity(
+            id = id,
+            title = title,
+            description = description,
+            dueAt = dueAt,
+            priority = priority,
+            category = category,
+            tags = tags,
+            checklistData = checklistData,
+            recurrence = recurrence,
+            recurrenceInterval = recurrenceInterval,
+            recurrenceDaysMask = recurrenceDaysMask,
+            recurrenceDayOfMonth = recurrenceDayOfMonth,
+            recurrenceAnchorAt = recurrenceAnchorAt,
+            recurrenceEndAt = recurrenceEndAt,
+            isCompleted = readBoolean(),
+            isArchived = readBoolean(),
+            archivedAt = readNullableLong(),
+            latitude = readNullableDouble(),
+            longitude = readNullableDouble(),
+            address = readNullableString(),
+            geofenceRadiusMeters = readFloat(),
+            geofenceEnabled = readBoolean(),
+            geofenceTransitionMode = readSizedString(),
+            notificationCooldownMinutes = readNullableInt(),
+            allowedDaysMask = readInt(),
+            reminderWindowStartMinutes = readNullableInt(),
+            reminderWindowEndMinutes = readNullableInt(),
+            snoozedUntil = readNullableLong(),
+            skipUntilNextVisit = readBoolean(),
+            lastNotifiedAt = readNullableLong(),
+            lastNotifiedTransition = readNullableString(),
+            geofenceStatus = readSizedString(),
+            geofenceStatusDetails = readNullableString(),
+            geofenceRegisteredAt = readNullableLong(),
+            createdAt = readLong(),
+            updatedAt = readLong(),
+        )
+    }
 
     private fun PlaceEntity.writeTo(output: DataOutputStream) = with(output) {
         writeLong(id)
@@ -435,7 +469,7 @@ object BackupCodec {
     private const val FILE_VERSION = 1
     private const val PAYLOAD_MAGIC = 0x4C544442
     private const val MIN_PAYLOAD_VERSION = 1
-    private const val PAYLOAD_VERSION = 2
+    private const val PAYLOAD_VERSION = 3
     private val LEGACY_CATEGORY_IDS = setOf(
         CategoryEntity.SHOPPING_ID,
         CategoryEntity.WORK_ID,

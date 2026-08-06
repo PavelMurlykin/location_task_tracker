@@ -25,13 +25,17 @@ import ru.pavel.locationtasks.data.GeofenceStatus
 import ru.pavel.locationtasks.data.GeofenceTransitionMode
 import ru.pavel.locationtasks.data.TaskPriority
 import ru.pavel.locationtasks.data.TaskRecurrence
+import ru.pavel.locationtasks.data.MAX_RECURRENCE_INTERVAL
+import ru.pavel.locationtasks.data.MIN_RECURRENCE_INTERVAL
 import ru.pavel.locationtasks.data.encodeTags
 import ru.pavel.locationtasks.data.parseTags
+import ru.pavel.locationtasks.data.recurrenceDayBit
 import ru.pavel.locationtasks.R
 import ru.pavel.locationtasks.location.LocationResolver
 import ru.pavel.locationtasks.location.ResolvedLocation
 import ru.pavel.locationtasks.notifications.ReminderSchedule
 import java.time.Instant
+import java.time.DayOfWeek
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -48,6 +52,11 @@ data class TaskEditorState(
     val tagsInput: String = "",
     val checklist: List<ChecklistItem> = emptyList(),
     val recurrence: TaskRecurrence = TaskRecurrence.NONE,
+    val recurrenceInterval: Int = 1,
+    val recurrenceDaysMask: Int = 0,
+    val recurrenceDayOfMonth: Int? = null,
+    val recurrenceAnchorAt: Long? = null,
+    val recurrenceEndAt: Long? = null,
     val isCompleted: Boolean = false,
     val isArchived: Boolean = false,
     val latitude: Double? = null,
@@ -143,6 +152,21 @@ class TaskEditorViewModel @Inject constructor(
                     tagsInput = task.tagNames.joinToString(", "),
                     checklist = task.checklistItems,
                     recurrence = task.resolvedRecurrence,
+                    recurrenceInterval = task.recurrenceInterval,
+                    recurrenceDaysMask = if (task.resolvedRecurrence == TaskRecurrence.WEEKLY) {
+                        task.recurrenceRule.effectiveDaysOfWeekMask()
+                    } else {
+                        task.recurrenceDaysMask
+                    },
+                    recurrenceDayOfMonth = if (
+                        task.resolvedRecurrence == TaskRecurrence.MONTHLY
+                    ) {
+                        task.recurrenceRule.effectiveDayOfMonth()
+                    } else {
+                        task.recurrenceDayOfMonth
+                    },
+                    recurrenceAnchorAt = task.recurrenceAnchorAt ?: task.dueAt,
+                    recurrenceEndAt = task.recurrenceEndAt,
                     isCompleted = task.isCompleted,
                     isArchived = task.isArchived,
                     latitude = task.latitude,
@@ -193,7 +217,32 @@ class TaskEditorViewModel @Inject constructor(
 
     fun setTitle(value: String) = update { copy(title = value, validationMessageRes = null) }
     fun setDescription(value: String) = update { copy(description = value) }
-    fun setDueAt(value: Long?) = update { copy(dueAt = value) }
+    fun setDueAt(value: Long?) = update {
+        val initializePattern = recurrenceAnchorAt == null && value != null
+        val dueDate = value?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()) }
+        copy(
+            dueAt = value,
+            recurrenceAnchorAt = if (recurrence == TaskRecurrence.NONE) null else value,
+            recurrenceDaysMask = if (
+                initializePattern &&
+                recurrence == TaskRecurrence.WEEKLY &&
+                recurrenceDaysMask == 0
+            ) {
+                recurrenceDayBit(requireNotNull(dueDate).dayOfWeek)
+            } else {
+                recurrenceDaysMask
+            },
+            recurrenceDayOfMonth = if (
+                initializePattern &&
+                recurrence == TaskRecurrence.MONTHLY &&
+                recurrenceDayOfMonth == null
+            ) {
+                requireNotNull(dueDate).dayOfMonth
+            } else {
+                recurrenceDayOfMonth
+            },
+        )
+    }
     fun setDueDate(selectedDateMillis: Long) = update {
         val selectedDate = Instant.ofEpochMilli(selectedDateMillis)
             .atZone(ZoneOffset.UTC)
@@ -201,19 +250,101 @@ class TaskEditorViewModel @Inject constructor(
         val time = dueAt?.let {
             Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalTime()
         } ?: LocalTime.of(DEFAULT_DUE_HOUR, 0)
-        copy(dueAt = selectedDate.atTime(time).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
+        val nextDueAt = selectedDate.atTime(time).atZone(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+        val initializePattern = recurrenceAnchorAt == null
+        copy(
+            dueAt = nextDueAt,
+            recurrenceAnchorAt = if (recurrence == TaskRecurrence.NONE) null else nextDueAt,
+            recurrenceDaysMask = if (
+                initializePattern &&
+                recurrence == TaskRecurrence.WEEKLY &&
+                recurrenceDaysMask == 0
+            ) {
+                recurrenceDayBit(selectedDate.dayOfWeek)
+            } else {
+                recurrenceDaysMask
+            },
+            recurrenceDayOfMonth = if (
+                initializePattern &&
+                recurrence == TaskRecurrence.MONTHLY &&
+                recurrenceDayOfMonth == null
+            ) {
+                selectedDate.dayOfMonth
+            } else {
+                recurrenceDayOfMonth
+            },
+        )
     }
     fun setDueTime(minutes: Int) = update {
         val date = dueAt?.let {
             Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
         } ?: return@update this
         val time = LocalTime.of(minutes / 60, minutes % 60)
-        copy(dueAt = date.atTime(time).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
+        val nextDueAt = date.atTime(time).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        copy(
+            dueAt = nextDueAt,
+            recurrenceAnchorAt = if (recurrence == TaskRecurrence.NONE) null else nextDueAt,
+        )
     }
     fun setPriority(value: TaskPriority) = update { copy(priority = value) }
     fun setCategory(value: String?) = update { copy(categoryId = value) }
     fun setTagsInput(value: String) = update { copy(tagsInput = value) }
-    fun setRecurrence(value: TaskRecurrence) = update { copy(recurrence = value) }
+    fun setRecurrence(value: TaskRecurrence) = update {
+        if (value == TaskRecurrence.NONE) {
+            copy(
+                recurrence = value,
+                recurrenceInterval = 1,
+                recurrenceDaysMask = 0,
+                recurrenceDayOfMonth = null,
+                recurrenceAnchorAt = null,
+                recurrenceEndAt = null,
+            )
+        } else {
+            val anchor = dueAt ?: recurrenceAnchorAt
+            val anchorDate = anchor?.let {
+                Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault())
+            }
+            copy(
+                recurrence = value,
+                recurrenceDaysMask = if (value == TaskRecurrence.WEEKLY) {
+                    recurrenceDaysMask.takeIf { it != 0 }
+                        ?: anchorDate?.dayOfWeek?.let(::recurrenceDayBit)
+                        ?: 0
+                } else {
+                    recurrenceDaysMask
+                },
+                recurrenceDayOfMonth = if (value == TaskRecurrence.MONTHLY) {
+                    recurrenceDayOfMonth ?: anchorDate?.dayOfMonth
+                } else {
+                    recurrenceDayOfMonth
+                },
+                recurrenceAnchorAt = anchor,
+                validationMessageRes = null,
+            )
+        }
+    }
+    fun setRecurrenceInterval(value: Int) = update {
+        copy(recurrenceInterval = value.coerceIn(MIN_RECURRENCE_INTERVAL, MAX_RECURRENCE_INTERVAL))
+    }
+    fun toggleRecurrenceDay(day: DayOfWeek) = update {
+        val nextMask = recurrenceDaysMask xor recurrenceDayBit(day)
+        if (nextMask == 0) this else copy(recurrenceDaysMask = nextMask)
+    }
+    fun setRecurrenceDayOfMonth(value: Int) = update {
+        copy(recurrenceDayOfMonth = value.coerceIn(1, 31))
+    }
+    fun setRecurrenceEndDate(selectedDateMillis: Long?) = update {
+        val endAt = selectedDateMillis?.let {
+            val selectedDate = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
+            selectedDate.plusDays(1)
+                .atStartOfDay(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli() - 1
+        }
+        copy(recurrenceEndAt = endAt, validationMessageRes = null)
+    }
     fun addChecklistItem(title: String) {
         val normalized = title.trim()
         if (normalized.isEmpty()) return
@@ -318,6 +449,17 @@ class TaskEditorViewModel @Inject constructor(
             update { copy(validationMessageRes = R.string.validation_location_required) }
             return
         }
+        if (current.recurrence != TaskRecurrence.NONE && current.dueAt == null) {
+            update { copy(validationMessageRes = R.string.validation_recurrence_due_date_required) }
+            return
+        }
+        if (current.recurrenceEndAt != null &&
+            current.dueAt != null &&
+            current.recurrenceEndAt < current.dueAt
+        ) {
+            update { copy(validationMessageRes = R.string.validation_recurrence_end_before_start) }
+            return
+        }
         viewModelScope.launch {
             update { copy(isSaving = true, validationMessageRes = null) }
             val base = originalTask ?: TaskEntity(title = current.title.trim())
@@ -335,7 +477,12 @@ class TaskEditorViewModel @Inject constructor(
                     task.allowedDaysMask != current.allowedDaysMask ||
                     task.reminderWindowStartMinutes != current.reminderWindowStartMinutes ||
                     task.reminderWindowEndMinutes != current.reminderWindowEndMinutes ||
-                    task.resolvedRecurrence != current.recurrence
+                    task.resolvedRecurrence != current.recurrence ||
+                    task.recurrenceInterval != current.recurrenceInterval ||
+                    task.recurrenceDaysMask != current.recurrenceDaysMask ||
+                    task.recurrenceDayOfMonth != current.recurrenceDayOfMonth ||
+                    task.recurrenceAnchorAt != current.recurrenceAnchorAt ||
+                    task.recurrenceEndAt != current.recurrenceEndAt
             } ?: true
             val shouldAdvanceRecurrence = current.isCompleted &&
                 current.recurrence != TaskRecurrence.NONE
@@ -348,6 +495,15 @@ class TaskEditorViewModel @Inject constructor(
                 tags = encodeTags(parseTags(current.tagsInput)),
                 checklistData = ChecklistCodec.encode(current.checklist),
                 recurrence = current.recurrence.name,
+                recurrenceInterval = current.recurrenceInterval,
+                recurrenceDaysMask = current.recurrenceDaysMask,
+                recurrenceDayOfMonth = current.recurrenceDayOfMonth,
+                recurrenceAnchorAt = if (current.recurrence == TaskRecurrence.NONE) {
+                    null
+                } else {
+                    current.recurrenceAnchorAt ?: current.dueAt
+                },
+                recurrenceEndAt = current.recurrenceEndAt,
                 isCompleted = current.isCompleted && !shouldAdvanceRecurrence,
                 latitude = current.latitude,
                 longitude = current.longitude,

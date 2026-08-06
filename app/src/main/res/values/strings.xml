@@ -82,6 +82,21 @@
     <string name="recurrence_daily">Каждый день</string>
     <string name="recurrence_weekly">Каждую неделю</string>
     <string name="recurrence_monthly">Каждый месяц</string>
+    <string name="recurrence_yearly">Каждый год</string>
+    <string name="recurrence_interval_label">Интервал</string>
+    <string name="recurrence_interval_decrease">Уменьшить интервал</string>
+    <string name="recurrence_interval_increase">Увеличить интервал</string>
+    <string name="recurrence_unit_days">дн.</string>
+    <string name="recurrence_unit_weeks">нед.</string>
+    <string name="recurrence_unit_months">мес.</string>
+    <string name="recurrence_unit_years">г.</string>
+    <string name="recurrence_days_of_week">Дни недели</string>
+    <string name="recurrence_day_of_month">Число месяца</string>
+    <string name="recurrence_day_decrease">Предыдущее число месяца</string>
+    <string name="recurrence_day_increase">Следующее число месяца</string>
+    <string name="recurrence_end_label">Окончание</string>
+    <string name="recurrence_never_ends">Никогда</string>
+    <string name="recurrence_yearly_date">Повторять в дату: %1$s</string>
     <string name="duplicate_task">Дублировать задачу</string>
     <string name="geofence_active">Геонапоминание активно</string>
     <string name="geofence_pending">Геонапоминание настраивается</string>
@@ -118,6 +133,8 @@
     <string name="delete_task_message">Задача и её геонапоминание будут удалены.</string>
     <string name="validation_title_required">Введите название задачи</string>
     <string name="validation_location_required">Укажите место для геонапоминания</string>
+    <string name="validation_recurrence_due_date_required">Для повторения укажите дату и время</string>
+    <string name="validation_recurrence_end_before_start">Дата окончания повторения должна быть не раньше первого срока</string>
 
     <string name="geofence_state_title">Состояние геонапоминания</string>
     <string name="geofence_state_active">Активно</string>

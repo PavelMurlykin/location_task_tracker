@@ -9,6 +9,9 @@ import ru.pavel.locationtasks.data.PlaceEntity
 import ru.pavel.locationtasks.data.ReminderPreferences
 import ru.pavel.locationtasks.data.TaskEntity
 import ru.pavel.locationtasks.data.TaskPriority
+import ru.pavel.locationtasks.data.TaskRecurrence
+import ru.pavel.locationtasks.data.recurrenceDayBit
+import java.time.DayOfWeek
 
 class BackupCodecTest {
     private val password = "correct horse battery staple".toCharArray()
@@ -31,6 +34,12 @@ class BackupCodecTest {
                     dueAt = 1_786_100_000_000,
                     priority = TaskPriority.HIGH.name,
                     category = "health",
+                    recurrence = TaskRecurrence.WEEKLY.name,
+                    recurrenceInterval = 2,
+                    recurrenceDaysMask = recurrenceDayBit(DayOfWeek.WEDNESDAY) or
+                        recurrenceDayBit(DayOfWeek.FRIDAY),
+                    recurrenceAnchorAt = 1_786_100_000_000,
+                    recurrenceEndAt = 1_796_100_000_000,
                     tags = "важно,аптека",
                     latitude = 55.7558,
                     longitude = 37.6176,

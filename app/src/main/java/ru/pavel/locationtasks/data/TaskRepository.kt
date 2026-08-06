@@ -73,25 +73,27 @@ class TaskRepository @Inject constructor(
         if (completed && task.resolvedRecurrence != TaskRecurrence.NONE) {
             val now = System.currentTimeMillis()
             val nextDueAt = nextOccurrenceAt(
-                recurrence = task.resolvedRecurrence,
+                rule = task.recurrenceRule,
                 currentDueAt = task.dueAt,
                 nowMillis = now,
             )
-            val resetChecklist = task.checklistItems.map { it.copy(isCompleted = false) }
-            save(
-                task.copy(
-                    dueAt = nextDueAt,
-                    isCompleted = false,
-                    isArchived = false,
-                    archivedAt = null,
-                    checklistData = ChecklistCodec.encode(resetChecklist),
-                    snoozedUntil = null,
-                    skipUntilNextVisit = false,
-                    lastNotifiedAt = null,
-                    lastNotifiedTransition = null,
-                ),
-            )
-            return TaskCompletionOutcome.RESCHEDULED
+            if (nextDueAt != null) {
+                val resetChecklist = task.checklistItems.map { it.copy(isCompleted = false) }
+                save(
+                    task.copy(
+                        dueAt = nextDueAt,
+                        isCompleted = false,
+                        isArchived = false,
+                        archivedAt = null,
+                        checklistData = ChecklistCodec.encode(resetChecklist),
+                        snoozedUntil = null,
+                        skipUntilNextVisit = false,
+                        lastNotifiedAt = null,
+                        lastNotifiedTransition = null,
+                    ),
+                )
+                return TaskCompletionOutcome.RESCHEDULED
+            }
         }
         taskDao.setCompleted(task.id, completed, System.currentTimeMillis())
         if (completed) {
@@ -128,7 +130,7 @@ class TaskRepository @Inject constructor(
             task.dueAt == null -> null
             task.dueAt > now -> task.dueAt
             task.resolvedRecurrence != TaskRecurrence.NONE -> nextOccurrenceAt(
-                recurrence = task.resolvedRecurrence,
+                rule = task.recurrenceRule,
                 currentDueAt = task.dueAt,
                 nowMillis = now,
             )
@@ -180,6 +182,11 @@ class TaskRepository @Inject constructor(
     ): Boolean {
         val recurrenceScheduleDiffers =
             recurrence != other.recurrence ||
+                recurrenceInterval != other.recurrenceInterval ||
+                recurrenceDaysMask != other.recurrenceDaysMask ||
+                recurrenceDayOfMonth != other.recurrenceDayOfMonth ||
+                recurrenceAnchorAt != other.recurrenceAnchorAt ||
+                recurrenceEndAt != other.recurrenceEndAt ||
                 (
                     (
                         resolvedRecurrence != TaskRecurrence.NONE ||

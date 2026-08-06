@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EditLocation
 import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -104,6 +105,7 @@ fun TaskEditorScreen(
     val recentPlaces by viewModel.recentPlaces.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     var showDatePicker by remember { mutableStateOf(false) }
+    var showRecurrenceEndDatePicker by remember { mutableStateOf(false) }
     var showDueTimePicker by remember { mutableStateOf(false) }
     var showWindowStartPicker by remember { mutableStateOf(false) }
     var showWindowEndPicker by remember { mutableStateOf(false) }
@@ -312,23 +314,6 @@ fun TaskEditorScreen(
                     singleLine = true,
                 )
 
-                Text(
-                    stringResource(R.string.recurrence_label),
-                    style = MaterialTheme.typography.labelLarge,
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    TaskRecurrence.entries.forEach { recurrence ->
-                        FilterChip(
-                            selected = state.recurrence == recurrence,
-                            onClick = { viewModel.setRecurrence(recurrence) },
-                            label = { Text(stringResource(recurrenceLabel(recurrence))) },
-                        )
-                    }
-                }
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -358,6 +343,190 @@ fun TaskEditorScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+
+                Text(
+                    stringResource(R.string.recurrence_label),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    TaskRecurrence.entries.forEach { recurrence ->
+                        FilterChip(
+                            selected = state.recurrence == recurrence,
+                            onClick = { viewModel.setRecurrence(recurrence) },
+                            label = { Text(stringResource(recurrenceLabel(recurrence))) },
+                        )
+                    }
+                }
+                if (state.recurrence != TaskRecurrence.NONE) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    stringResource(R.string.recurrence_interval_label),
+                                    modifier = Modifier.weight(1f),
+                                )
+                                IconButton(
+                                    onClick = {
+                                        viewModel.setRecurrenceInterval(
+                                            state.recurrenceInterval - 1,
+                                        )
+                                    },
+                                    enabled = state.recurrenceInterval > 1,
+                                ) {
+                                    Icon(
+                                        Icons.Default.Remove,
+                                        contentDescription = stringResource(
+                                            R.string.recurrence_interval_decrease,
+                                        ),
+                                    )
+                                }
+                                Text(
+                                    state.recurrenceInterval.toString(),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                IconButton(
+                                    onClick = {
+                                        viewModel.setRecurrenceInterval(
+                                            state.recurrenceInterval + 1,
+                                        )
+                                    },
+                                    enabled = state.recurrenceInterval < 99,
+                                ) {
+                                    Icon(
+                                        Icons.Default.Add,
+                                        contentDescription = stringResource(
+                                            R.string.recurrence_interval_increase,
+                                        ),
+                                    )
+                                }
+                                Text(stringResource(recurrenceIntervalUnit(state.recurrence)))
+                            }
+
+                            if (state.recurrence == TaskRecurrence.WEEKLY) {
+                                Text(
+                                    stringResource(R.string.recurrence_days_of_week),
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    DayOfWeek.entries.forEach { day ->
+                                        val bit = ru.pavel.locationtasks.data
+                                            .recurrenceDayBit(day)
+                                        FilterChip(
+                                            selected = state.recurrenceDaysMask and bit != 0,
+                                            onClick = { viewModel.toggleRecurrenceDay(day) },
+                                            label = {
+                                                Text(stringResource(dayShortLabel(day)))
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (state.recurrence == TaskRecurrence.MONTHLY) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        stringResource(R.string.recurrence_day_of_month),
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.setRecurrenceDayOfMonth(
+                                                (state.recurrenceDayOfMonth ?: 1) - 1,
+                                            )
+                                        },
+                                        enabled = (state.recurrenceDayOfMonth ?: 1) > 1,
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Remove,
+                                            contentDescription = stringResource(
+                                                R.string.recurrence_day_decrease,
+                                            ),
+                                        )
+                                    }
+                                    Text(
+                                        (state.recurrenceDayOfMonth ?: 1).toString(),
+                                        style = MaterialTheme.typography.titleMedium,
+                                    )
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.setRecurrenceDayOfMonth(
+                                                (state.recurrenceDayOfMonth ?: 1) + 1,
+                                            )
+                                        },
+                                        enabled = (state.recurrenceDayOfMonth ?: 1) < 31,
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Add,
+                                            contentDescription = stringResource(
+                                                R.string.recurrence_day_increase,
+                                            ),
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (state.recurrence == TaskRecurrence.YEARLY) {
+                                Text(
+                                    state.dueAt?.let {
+                                        stringResource(
+                                            R.string.recurrence_yearly_date,
+                                            formatEditorDate(it),
+                                        )
+                                    } ?: stringResource(
+                                        R.string.validation_recurrence_due_date_required,
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    stringResource(R.string.recurrence_end_label),
+                                    modifier = Modifier.weight(1f),
+                                )
+                                OutlinedButton(
+                                    onClick = { showRecurrenceEndDatePicker = true },
+                                ) {
+                                    Text(
+                                        state.recurrenceEndAt?.let(::formatEditorDate)
+                                            ?: stringResource(R.string.recurrence_never_ends),
+                                    )
+                                }
+                                if (state.recurrenceEndAt != null) {
+                                    IconButton(
+                                        onClick = { viewModel.setRecurrenceEndDate(null) },
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = stringResource(
+                                                R.string.common_reset,
+                                            ),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
                 HorizontalDivider()
                 Text(
@@ -635,6 +804,30 @@ fun TaskEditorScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showRecurrenceEndDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = state.recurrenceEndAt?.let(::datePickerMillis),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showRecurrenceEndDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.setRecurrenceEndDate(datePickerState.selectedDateMillis)
+                        showRecurrenceEndDatePicker = false
+                    },
+                ) { Text(stringResource(R.string.common_done)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRecurrenceEndDatePicker = false }) {
                     Text(stringResource(R.string.common_cancel))
                 }
             },
@@ -974,6 +1167,13 @@ private fun instantMinutesOfDay(timestamp: Long): Int {
     return time.hour * 60 + time.minute
 }
 
+private fun datePickerMillis(timestamp: Long): Long = Instant.ofEpochMilli(timestamp)
+    .atZone(ZoneId.systemDefault())
+    .toLocalDate()
+    .atStartOfDay(java.time.ZoneOffset.UTC)
+    .toInstant()
+    .toEpochMilli()
+
 private fun formatTime(minutes: Int): String =
     "%02d:%02d".format(minutes / 60, minutes % 60)
 
@@ -992,6 +1192,16 @@ private fun recurrenceLabel(recurrence: TaskRecurrence): Int = when (recurrence)
     TaskRecurrence.DAILY -> R.string.recurrence_daily
     TaskRecurrence.WEEKLY -> R.string.recurrence_weekly
     TaskRecurrence.MONTHLY -> R.string.recurrence_monthly
+    TaskRecurrence.YEARLY -> R.string.recurrence_yearly
+}
+
+private fun recurrenceIntervalUnit(recurrence: TaskRecurrence): Int = when (recurrence) {
+    TaskRecurrence.NONE,
+    TaskRecurrence.DAILY,
+    -> R.string.recurrence_unit_days
+    TaskRecurrence.WEEKLY -> R.string.recurrence_unit_weeks
+    TaskRecurrence.MONTHLY -> R.string.recurrence_unit_months
+    TaskRecurrence.YEARLY -> R.string.recurrence_unit_years
 }
 
 private fun formatCoordinate(value: Double?): String =

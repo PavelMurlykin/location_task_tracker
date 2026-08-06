@@ -12,7 +12,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PlaceEntity::class,
         CategoryEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -198,6 +198,27 @@ abstract class AppDatabase : RoomDatabase() {
                     """.trimIndent(),
                 )
                 insertDefaultCategories(db)
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE tasks ADD COLUMN recurrenceInterval INTEGER NOT NULL DEFAULT 1",
+                )
+                db.execSQL(
+                    "ALTER TABLE tasks ADD COLUMN recurrenceDaysMask INTEGER NOT NULL DEFAULT 0",
+                )
+                db.execSQL("ALTER TABLE tasks ADD COLUMN recurrenceDayOfMonth INTEGER")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN recurrenceAnchorAt INTEGER")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN recurrenceEndAt INTEGER")
+                db.execSQL(
+                    """
+                    UPDATE tasks
+                    SET recurrenceAnchorAt = dueAt
+                    WHERE recurrence != 'NONE' AND dueAt IS NOT NULL
+                    """.trimIndent(),
+                )
             }
         }
 

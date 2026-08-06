@@ -82,6 +82,21 @@
     <string name="recurrence_daily">Every day</string>
     <string name="recurrence_weekly">Every week</string>
     <string name="recurrence_monthly">Every month</string>
+    <string name="recurrence_yearly">Every year</string>
+    <string name="recurrence_interval_label">Interval</string>
+    <string name="recurrence_interval_decrease">Decrease interval</string>
+    <string name="recurrence_interval_increase">Increase interval</string>
+    <string name="recurrence_unit_days">day(s)</string>
+    <string name="recurrence_unit_weeks">week(s)</string>
+    <string name="recurrence_unit_months">month(s)</string>
+    <string name="recurrence_unit_years">year(s)</string>
+    <string name="recurrence_days_of_week">Days of week</string>
+    <string name="recurrence_day_of_month">Day of month</string>
+    <string name="recurrence_day_decrease">Previous day of month</string>
+    <string name="recurrence_day_increase">Next day of month</string>
+    <string name="recurrence_end_label">Ends</string>
+    <string name="recurrence_never_ends">Never</string>
+    <string name="recurrence_yearly_date">Repeat on: %1$s</string>
     <string name="duplicate_task">Duplicate task</string>
     <string name="geofence_active">Location reminder active</string>
     <string name="geofence_pending">Location reminder is being configured</string>
@@ -118,6 +133,8 @@
     <string name="delete_task_message">The task and its location reminder will be deleted.</string>
     <string name="validation_title_required">Enter a task title</string>
     <string name="validation_location_required">Choose a location for the reminder</string>
+    <string name="validation_recurrence_due_date_required">Set a date and time for repeating tasks</string>
+    <string name="validation_recurrence_end_before_start">The recurrence end date cannot be before the first due date</string>
 
     <string name="geofence_state_title">Location reminder status</string>
     <string name="geofence_state_active">Active</string>

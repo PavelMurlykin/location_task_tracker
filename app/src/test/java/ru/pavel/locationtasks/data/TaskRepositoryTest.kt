@@ -143,6 +143,31 @@ class TaskRepositoryTest {
     }
 
     @Test
+    fun `completing the last occurrence finishes the task`() = runBlocking {
+        val dueAt = System.currentTimeMillis() + 86_400_000L
+        val task = TaskEntity(
+            id = 22,
+            title = "Последнее повторение",
+            dueAt = dueAt,
+            recurrence = TaskRecurrence.DAILY.name,
+            recurrenceAnchorAt = dueAt,
+            recurrenceEndAt = dueAt + 60_000L,
+        )
+        val taskDao = FakeTaskDao(listOf(task))
+        val repository = TaskRepository(
+            taskDao,
+            FakeGeofenceCoordinator(),
+            FakeReminderWorkScheduler(),
+        )
+
+        val outcome = repository.setCompleted(task, true)
+        val updated = requireNotNull(taskDao.getById(task.id))
+
+        assertEquals(TaskCompletionOutcome.UPDATED, outcome)
+        assertTrue(updated.isCompleted)
+    }
+
+    @Test
     fun `archiving task disables its reminders`() = runBlocking {
         val task = monitoredTask(id = 21L).copy(isCompleted = true)
         val taskDao = FakeTaskDao(listOf(task))

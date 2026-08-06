@@ -21,6 +21,13 @@ data class TaskEntity(
     val checklistData: String = "",
     @ColumnInfo(defaultValue = "'NONE'")
     val recurrence: String = TaskRecurrence.NONE.name,
+    @ColumnInfo(defaultValue = "1")
+    val recurrenceInterval: Int = 1,
+    @ColumnInfo(defaultValue = "0")
+    val recurrenceDaysMask: Int = 0,
+    val recurrenceDayOfMonth: Int? = null,
+    val recurrenceAnchorAt: Long? = null,
+    val recurrenceEndAt: Long? = null,
     val isCompleted: Boolean = false,
     @ColumnInfo(defaultValue = "0")
     val isArchived: Boolean = false,
@@ -63,6 +70,16 @@ data class TaskEntity(
 
     val resolvedRecurrence: TaskRecurrence
         get() = TaskRecurrence.fromStorage(recurrence)
+
+    val recurrenceRule: TaskRecurrenceRule
+        get() = TaskRecurrenceRule(
+            recurrence = resolvedRecurrence,
+            interval = recurrenceInterval,
+            daysOfWeekMask = recurrenceDaysMask,
+            dayOfMonth = recurrenceDayOfMonth,
+            anchorAt = recurrenceAnchorAt ?: dueAt,
+            endAt = recurrenceEndAt,
+        )
 
     val checklistItems: List<ChecklistItem>
         get() = ChecklistCodec.decode(checklistData)
