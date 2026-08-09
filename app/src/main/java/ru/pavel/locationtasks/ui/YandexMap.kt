@@ -44,6 +44,8 @@ fun YandexLocationMap(
     longitude: Double,
     radius: Float,
     showUserLocation: Boolean,
+    centerLatitude: Double? = null,
+    centerLongitude: Double? = null,
     primaryColor: Color,
     modifier: Modifier = Modifier,
     onLongClick: (Double, Double) -> Unit,
@@ -52,6 +54,13 @@ fun YandexLocationMap(
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentOnLongClick by rememberUpdatedState(onLongClick)
     val point = remember(latitude, longitude) { Point(latitude, longitude) }
+    val deviceLocation = remember(centerLatitude, centerLongitude) {
+        if (centerLatitude != null && centerLongitude != null) {
+            Point(centerLatitude, centerLongitude)
+        } else {
+            null
+        }
+    }
     val mapView = remember(context) { MapView(context) }
     val map = remember(mapView) { mapView.mapWindow.map }
     val hasPositionedCamera = remember(map) { mutableStateOf(false) }
@@ -111,6 +120,22 @@ fun YandexLocationMap(
             Animation(Animation.Type.SMOOTH, CAMERA_ANIMATION_SECONDS),
         )
         hasPositionedCamera.value = true
+    }
+
+    LaunchedEffect(deviceLocation) {
+        deviceLocation?.let { location ->
+            val currentCamera = map.cameraPosition
+            map.move(
+                CameraPosition(
+                    location,
+                    maxOf(currentCamera.zoom, DEFAULT_MAP_ZOOM),
+                    currentCamera.azimuth,
+                    currentCamera.tilt,
+                ),
+                Animation(Animation.Type.SMOOTH, CAMERA_ANIMATION_SECONDS),
+            )
+            hasPositionedCamera.value = true
+        }
     }
 
     LaunchedEffect(point, radius) {

@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -49,18 +48,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -91,8 +88,9 @@ fun LocationPickerDialog(
     onConfirm: (Double, Double, String, Float) -> Unit,
 ) {
     val context = LocalContext.current
-    val density = LocalDensity.current
-    val contentScrollState = rememberScrollState()
+    val locationClient = remember(context) {
+        LocationServices.getFusedLocationProviderClient(context)
+    }
     var latitude by remember { mutableDoubleStateOf(initialLatitude ?: DEFAULT_LATITUDE) }
     var longitude by remember { mutableDoubleStateOf(initialLongitude ?: DEFAULT_LONGITUDE) }
     var latitudeText by remember { mutableStateOf(initialLatitude?.toString() ?: DEFAULT_LATITUDE.toString()) }
@@ -106,7 +104,10 @@ fun LocationPickerDialog(
     var showSavePlaceDialog by remember { mutableStateOf(false) }
     var placeName by remember { mutableStateOf("") }
     var isMapExpanded by remember { mutableStateOf(false) }
-    var collapsedMapHeightPx by remember { mutableIntStateOf(0) }
+    var mapCenterLatitude by remember { mutableStateOf<Double?>(null) }
+    var mapCenterLongitude by remember { mutableStateOf<Double?>(null) }
+    var hasRequestedInitialDeviceLocation by remember { mutableStateOf(false) }
+    var selectDeviceLocationAfterPermission by remember { mutableStateOf(false) }
     var hasFinePermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -123,9 +124,62 @@ fun LocationPickerDialog(
             Manifest.permission.ACCESS_FINE_LOCATION,
         ) == PackageManager.PERMISSION_GRANTED
         errorMessage = if (hasFinePermission) {
-            context.getString(R.string.location_permission_granted_retry)
+            null
         } else {
             context.getString(R.string.precise_location_required)
+        }
+    }
+
+    fun requestCurrentLocation(selectForTask: Boolean) {
+        if (!hasFinePermission) return
+
+        @Suppress("MissingPermission")
+        locationClient
+            .getCurrentLocation(
+                Priority.PRIORITY_HIGH_ACCURACY,
+                CancellationTokenSource().token,
+            )
+            .addOnSuccessListener { location ->
+                if (location == null) {
+                    errorMessage = context.getString(R.string.current_position_unavailable)
+                    return@addOnSuccessListener
+                }
+
+                mapCenterLatitude = location.latitude
+                mapCenterLongitude = location.longitude
+                errorMessage = null
+                if (selectForTask) {
+                    latitude = location.latitude
+                    longitude = location.longitude
+                    latitudeText = location.latitude.toString()
+                    longitudeText = location.longitude.toString()
+                    onReverse(location.latitude, location.longitude) {
+                        address = it.orEmpty()
+                    }
+                }
+            }
+    }
+
+    fun useCurrentLocation() {
+        if (hasFinePermission) {
+            requestCurrentLocation(selectForTask = true)
+        } else {
+            selectDeviceLocationAfterPermission = true
+            foregroundPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                ),
+            )
+        }
+    }
+
+    LaunchedEffect(hasFinePermission) {
+        if (hasFinePermission && !hasRequestedInitialDeviceLocation) {
+            hasRequestedInitialDeviceLocation = true
+            val selectForTask = selectDeviceLocationAfterPermission
+            selectDeviceLocationAfterPermission = false
+            requestCurrentLocation(selectForTask = selectForTask)
         }
     }
 
@@ -163,44 +217,39 @@ fun LocationPickerDialog(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
-                        .padding(horizontal = 16.dp)
-                        .then(
-                            if (isMapExpanded) {
-                                Modifier.verticalScroll(contentScrollState)
-                            } else {
-                                Modifier
-                            },
-                        ),
+                        .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    PlaceSuggestionRow(
-                        title = stringResource(R.string.saved_places_title),
-                        places = savedPlaces,
-                        onSelected = { place ->
-                            applyResolvedLocation(
-                                ResolvedLocation(
-                                    latitude = place.latitude,
-                                    longitude = place.longitude,
-                                    address = place.address,
-                                ),
-                            )
-                            radius = place.radiusMeters
-                        },
-                    )
-                    PlaceSuggestionRow(
-                        title = stringResource(R.string.recent_places_title),
-                        places = recentPlaces,
-                        onSelected = { place ->
-                            applyResolvedLocation(
-                                ResolvedLocation(
-                                    latitude = place.latitude,
-                                    longitude = place.longitude,
-                                    address = place.address,
-                                ),
-                            )
-                            radius = place.radiusMeters
-                        },
-                    )
+                    if (!isMapExpanded) {
+                        PlaceSuggestionRow(
+                            title = stringResource(R.string.saved_places_title),
+                            places = savedPlaces,
+                            onSelected = { place ->
+                                applyResolvedLocation(
+                                    ResolvedLocation(
+                                        latitude = place.latitude,
+                                        longitude = place.longitude,
+                                        address = place.address,
+                                    ),
+                                )
+                                radius = place.radiusMeters
+                            },
+                        )
+                        PlaceSuggestionRow(
+                            title = stringResource(R.string.recent_places_title),
+                            places = recentPlaces,
+                            onSelected = { place ->
+                                applyResolvedLocation(
+                                    ResolvedLocation(
+                                        latitude = place.latitude,
+                                        longitude = place.longitude,
+                                        address = place.address,
+                                    ),
+                                )
+                                radius = place.radiusMeters
+                            },
+                        )
+                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -265,26 +314,15 @@ fun LocationPickerDialog(
                     }
 
                     if (BuildConfig.MAPKIT_API_KEY_PRESENT) {
-                        val mapModifier = if (isMapExpanded) {
-                            val expandedHeight = with(density) {
-                                (collapsedMapHeightPx * MAP_EXPANSION_FACTOR).toDp()
-                            }
-                            Modifier
-                                .fillMaxWidth()
-                                .height(expandedHeight)
-                        } else {
-                            Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .onSizeChanged { collapsedMapHeightPx = it.height }
-                        }
-                        Box(modifier = mapModifier) {
+                        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
                             YandexLocationMap(
                                 modifier = Modifier.fillMaxSize(),
                                 latitude = latitude,
                                 longitude = longitude,
                                 radius = radius,
                                 showUserLocation = hasFinePermission,
+                                centerLatitude = mapCenterLatitude,
+                                centerLongitude = mapCenterLongitude,
                                 primaryColor = MaterialTheme.colorScheme.primary,
                                 onLongClick = { selectedLatitude, selectedLongitude ->
                                     latitude = selectedLatitude
@@ -329,12 +367,20 @@ fun LocationPickerDialog(
                                     .align(Alignment.TopEnd)
                                     .padding(8.dp),
                             )
+                            UseCurrentLocationButton(
+                                onClick = ::useCurrentLocation,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(8.dp),
+                            )
                         }
-                        Text(
-                            stringResource(R.string.map_long_press_hint),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        if (!isMapExpanded) {
+                            Text(
+                                stringResource(R.string.map_long_press_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     } else {
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Row(
@@ -352,119 +398,96 @@ fun LocationPickerDialog(
                         Spacer(Modifier.weight(1f))
                     }
 
-                    OutlinedButton(
-                        onClick = {
-                            if (!hasFinePermission) {
-                                foregroundPermissionLauncher.launch(
-                                    arrayOf(
-                                        Manifest.permission.ACCESS_COARSE_LOCATION,
-                                        Manifest.permission.ACCESS_FINE_LOCATION,
-                                    ),
-                                )
-                            } else {
-                                @Suppress("MissingPermission")
-                                LocationServices.getFusedLocationProviderClient(context)
-                                    .getCurrentLocation(
-                                        Priority.PRIORITY_HIGH_ACCURACY,
-                                        CancellationTokenSource().token,
-                                    )
-                                    .addOnSuccessListener { location ->
-                                        if (location == null) {
-                                            errorMessage = context.getString(
-                                                R.string.current_position_unavailable,
-                                            )
-                                        } else {
-                                            latitude = location.latitude
-                                            longitude = location.longitude
-                                            latitudeText = location.latitude.toString()
-                                            longitudeText = location.longitude.toString()
-                                            onReverse(location.latitude, location.longitude) {
-                                                address = it.orEmpty()
-                                            }
-                                        }
-                                    }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Icon(Icons.Default.GpsFixed, contentDescription = null)
-                        Spacer(Modifier.size(8.dp))
-                        Text(stringResource(R.string.use_my_location))
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = latitudeText,
-                            onValueChange = { value ->
-                                latitudeText = value
-                                value.replace(',', '.').toDoubleOrNull()
-                                    ?.takeIf { it in -90.0..90.0 }
-                                    ?.let { latitude = it }
-                            },
-                            modifier = Modifier.weight(1f),
-                            label = { Text(stringResource(R.string.latitude_label)) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            singleLine = true,
-                        )
-                        OutlinedTextField(
-                            value = longitudeText,
-                            onValueChange = { value ->
-                                longitudeText = value
-                                value.replace(',', '.').toDoubleOrNull()
-                                    ?.takeIf { it in -180.0..180.0 }
-                                    ?.let { longitude = it }
-                            },
-                            modifier = Modifier.weight(1f),
-                            label = { Text(stringResource(R.string.longitude_label)) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            singleLine = true,
-                        )
-                    }
-                    OutlinedTextField(
-                        value = address,
-                        onValueChange = { address = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text(stringResource(R.string.place_name_or_address)) },
-                        singleLine = true,
-                    )
-                    OutlinedButton(
-                        onClick = {
-                            placeName = ""
-                            showSavePlaceDialog = true
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Icon(Icons.Default.BookmarkAdd, contentDescription = null)
-                        Spacer(Modifier.size(8.dp))
-                        Text(stringResource(R.string.save_place_template))
-                    }
-                    Text(stringResource(R.string.radius_value, radius.toInt()))
-                    Slider(
-                        value = radius,
-                        onValueChange = { radius = it },
-                        valueRange = 100f..1_000f,
-                        steps = 8,
-                    )
-                    errorMessage?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error)
-                    }
-                    Button(
-                        onClick = {
-                            val validLatitude = latitudeText.replace(',', '.').toDoubleOrNull()
-                            val validLongitude = longitudeText.replace(',', '.').toDoubleOrNull()
-                            if (validLatitude == null || validLatitude !in -90.0..90.0 ||
-                                validLongitude == null || validLongitude !in -180.0..180.0
+                    if (!isMapExpanded) {
+                        if (!BuildConfig.MAPKIT_API_KEY_PRESENT) {
+                            OutlinedButton(
+                                onClick = ::useCurrentLocation,
+                                modifier = Modifier.fillMaxWidth(),
                             ) {
-                                errorMessage = context.getString(R.string.invalid_coordinates)
-                            } else {
-                                onConfirm(validLatitude, validLongitude, address, radius)
+                                Icon(Icons.Default.GpsFixed, contentDescription = null)
+                                Spacer(Modifier.size(8.dp))
+                                Text(stringResource(R.string.use_my_location))
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                    ) {
-                        Text(stringResource(R.string.choose_this_location))
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = latitudeText,
+                                onValueChange = { value ->
+                                    latitudeText = value
+                                    value.replace(',', '.').toDoubleOrNull()
+                                        ?.takeIf { it in -90.0..90.0 }
+                                        ?.let { latitude = it }
+                                },
+                                modifier = Modifier.weight(1f),
+                                label = { Text(stringResource(R.string.latitude_label)) },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal,
+                                ),
+                                singleLine = true,
+                            )
+                            OutlinedTextField(
+                                value = longitudeText,
+                                onValueChange = { value ->
+                                    longitudeText = value
+                                    value.replace(',', '.').toDoubleOrNull()
+                                        ?.takeIf { it in -180.0..180.0 }
+                                        ?.let { longitude = it }
+                                },
+                                modifier = Modifier.weight(1f),
+                                label = { Text(stringResource(R.string.longitude_label)) },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal,
+                                ),
+                                singleLine = true,
+                            )
+                        }
+                        OutlinedTextField(
+                            value = address,
+                            onValueChange = { address = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(stringResource(R.string.place_name_or_address)) },
+                            singleLine = true,
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                placeName = ""
+                                showSavePlaceDialog = true
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Default.BookmarkAdd, contentDescription = null)
+                            Spacer(Modifier.size(8.dp))
+                            Text(stringResource(R.string.save_place_template))
+                        }
+                        Text(stringResource(R.string.radius_value, radius.toInt()))
+                        Slider(
+                            value = radius,
+                            onValueChange = { radius = it },
+                            valueRange = 100f..1_000f,
+                            steps = 8,
+                        )
+                        errorMessage?.let {
+                            Text(it, color = MaterialTheme.colorScheme.error)
+                        }
+                        Button(
+                            onClick = {
+                                val validLatitude = latitudeText.replace(',', '.').toDoubleOrNull()
+                                val validLongitude = longitudeText.replace(',', '.').toDoubleOrNull()
+                                if (validLatitude == null || validLatitude !in -90.0..90.0 ||
+                                    validLongitude == null || validLongitude !in -180.0..180.0
+                                ) {
+                                    errorMessage = context.getString(R.string.invalid_coordinates)
+                                } else {
+                                    onConfirm(validLatitude, validLongitude, address, radius)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                        ) {
+                            Text(stringResource(R.string.choose_this_location))
+                        }
+                        Spacer(Modifier.height(8.dp))
                     }
-                    Spacer(Modifier.height(8.dp))
                 }
             }
         }
@@ -563,6 +586,24 @@ private fun PlaceSuggestionRow(
     }
 }
 
+@Composable
+private fun UseCurrentLocationButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        tonalElevation = 3.dp,
+    ) {
+        IconButton(onClick = onClick) {
+            Icon(
+                Icons.Default.GpsFixed,
+                contentDescription = stringResource(R.string.use_my_location),
+            )
+        }
+    }
+}
+
 private const val DEFAULT_LATITUDE = 55.7558
 private const val DEFAULT_LONGITUDE = 37.6173
-private const val MAP_EXPANSION_FACTOR = 4
