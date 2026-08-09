@@ -209,6 +209,8 @@
     <string name="search_address_hint">Найти адрес</string>
     <string name="address_not_found">Адрес не найден</string>
     <string name="map_long_press_hint">Нажмите и удерживайте карту, чтобы поставить метку</string>
+    <string name="expand_map">Развернуть</string>
+    <string name="collapse_map">Свернуть</string>
     <string name="map_api_key_missing">Для карты добавьте MAPKIT_API_KEY в local.properties. Координаты можно указать вручную или получить с устройства.</string>
     <string name="use_my_location">Использовать моё местоположение</string>
     <string name="latitude_label">Широта</string>

@@ -18,16 +18,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -48,12 +52,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -84,6 +91,8 @@ fun LocationPickerDialog(
     onConfirm: (Double, Double, String, Float) -> Unit,
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
+    val contentScrollState = rememberScrollState()
     var latitude by remember { mutableDoubleStateOf(initialLatitude ?: DEFAULT_LATITUDE) }
     var longitude by remember { mutableDoubleStateOf(initialLongitude ?: DEFAULT_LONGITUDE) }
     var latitudeText by remember { mutableStateOf(initialLatitude?.toString() ?: DEFAULT_LATITUDE.toString()) }
@@ -96,6 +105,8 @@ fun LocationPickerDialog(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showSavePlaceDialog by remember { mutableStateOf(false) }
     var placeName by remember { mutableStateOf("") }
+    var isMapExpanded by remember { mutableStateOf(false) }
+    var collapsedMapHeightPx by remember { mutableIntStateOf(0) }
     var hasFinePermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -152,7 +163,14 @@ fun LocationPickerDialog(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 16.dp)
+                        .then(
+                            if (isMapExpanded) {
+                                Modifier.verticalScroll(contentScrollState)
+                            } else {
+                                Modifier
+                            },
+                        ),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     PlaceSuggestionRow(
@@ -247,7 +265,20 @@ fun LocationPickerDialog(
                     }
 
                     if (BuildConfig.MAPKIT_API_KEY_PRESENT) {
-                        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                        val mapModifier = if (isMapExpanded) {
+                            val expandedHeight = with(density) {
+                                (collapsedMapHeightPx * MAP_EXPANSION_FACTOR).toDp()
+                            }
+                            Modifier
+                                .fillMaxWidth()
+                                .height(expandedHeight)
+                        } else {
+                            Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .onSizeChanged { collapsedMapHeightPx = it.height }
+                        }
+                        Box(modifier = mapModifier) {
                             YandexLocationMap(
                                 modifier = Modifier.fillMaxSize(),
                                 latitude = latitude,
@@ -264,6 +295,34 @@ fun LocationPickerDialog(
                                         address = resolved.orEmpty()
                                     }
                                 },
+                            )
+                            AssistChip(
+                                onClick = { isMapExpanded = !isMapExpanded },
+                                label = {
+                                    Text(
+                                        stringResource(
+                                            if (isMapExpanded) {
+                                                R.string.collapse_map
+                                            } else {
+                                                R.string.expand_map
+                                            },
+                                        ),
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (isMapExpanded) {
+                                            Icons.Default.FullscreenExit
+                                        } else {
+                                            Icons.Default.Fullscreen
+                                        },
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                },
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(8.dp),
                             )
                             OpenInYandexMapsButton(
                                 modifier = Modifier
@@ -506,3 +565,4 @@ private fun PlaceSuggestionRow(
 
 private const val DEFAULT_LATITUDE = 55.7558
 private const val DEFAULT_LONGITUDE = 37.6173
+private const val MAP_EXPANSION_FACTOR = 4

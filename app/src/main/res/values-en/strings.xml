@@ -209,6 +209,8 @@
     <string name="search_address_hint">Search address</string>
     <string name="address_not_found">Address not found</string>
     <string name="map_long_press_hint">Touch and hold the map to place a marker</string>
+    <string name="expand_map">Expand</string>
+    <string name="collapse_map">Collapse</string>
     <string name="map_api_key_missing">Add MAPKIT_API_KEY to local.properties to enable the map. Coordinates can be entered manually or obtained from the device.</string>
     <string name="use_my_location">Use my location</string>
     <string name="latitude_label">Latitude</string>
