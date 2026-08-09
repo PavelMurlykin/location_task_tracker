@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.EditLocation
 import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Settings as SettingsIcon
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -68,6 +69,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -98,6 +100,7 @@ import java.time.format.DateTimeFormatter
 fun TaskEditorScreen(
     onClose: () -> Unit,
     onOpenTask: (Long) -> Unit,
+    onOpenCategories: () -> Unit,
     viewModel: TaskEditorViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -111,7 +114,7 @@ fun TaskEditorScreen(
     var showWindowEndPicker by remember { mutableStateOf(false) }
     var showLocationPicker by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
-    var checklistDraft by remember { mutableStateOf("") }
+    var checklistDraft by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
@@ -227,10 +230,25 @@ fun TaskEditorScreen(
                     }
                 }
 
-                Text(
-                    stringResource(R.string.category_label),
-                    style = MaterialTheme.typography.labelLarge,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(R.string.category_label),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    TextButton(onClick = onOpenCategories) {
+                        Icon(
+                            Icons.Default.SettingsIcon,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.size(6.dp))
+                        Text(stringResource(R.string.categories_open))
+                    }
+                }
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),

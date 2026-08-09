@@ -92,6 +92,11 @@ fun LocationTasksApp(
         ) {
             TaskEditorScreen(
                 onClose = navController::popBackStack,
+                onOpenCategories = {
+                    navController.navigate(Routes.CATEGORIES) {
+                        launchSingleTop = true
+                    }
+                },
                 onOpenTask = { taskId ->
                     val currentDestinationId = navController.currentDestination?.id
                     navController.navigate(Routes.task(taskId)) {
