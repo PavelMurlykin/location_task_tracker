@@ -23,11 +23,11 @@ fun quotedBuildConfig(value: String): String =
     "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
 android {
-    namespace = "ru.pavel.locationtasks"
+    namespace = "com.pamurlykin.locationtasks"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "ru.pavel.locationtasks"
+        applicationId = "com.pamurlykin.locationtasks"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

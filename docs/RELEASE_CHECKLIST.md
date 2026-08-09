@@ -1,7 +1,7 @@
 # Чек-лист релиза
 
 - Обновить `versionCode`, `versionName` и примечания к выпуску.
-- Добавить рабочий `MAPKIT_API_KEY` для package name `ru.pavel.locationtasks`.
+- Добавить рабочий `MAPKIT_API_KEY` для package name `com.pamurlykin.locationtasks`.
 - Проверить соответствие приложения условиям бесплатной лицензии MapKit и лимиту DAU.
 - При необходимости настроить `SENTRY_DSN`, `POSTHOG_API_KEY` и `POSTHOG_HOST` через CI secrets, не добавляя значения в репозиторий.
 - Запустить `./gradlew clean assembleRelease test lintRelease` и просмотреть все отчёты.
