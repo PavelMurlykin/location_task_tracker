@@ -29,13 +29,16 @@ enum class ReminderKind {
 class TaskNotificationManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
+    private val localizedContext: Context
+        get() = ContextCompat.getContextForLanguage(context)
+
     fun createChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            context.getString(R.string.notification_channel_name),
+            localizedContext.getString(R.string.notification_channel_name),
             NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
-            description = context.getString(R.string.notification_channel_description)
+            description = localizedContext.getString(R.string.notification_channel_description)
         }
         context.getSystemService(NotificationManager::class.java)
             .createNotificationChannel(channel)
@@ -46,20 +49,20 @@ class TaskNotificationManager @Inject constructor(
         transition: GeofenceTransition,
     ): Boolean {
         val place = task.address?.takeIf(String::isNotBlank)
-            ?: context.getString(R.string.notification_selected_place)
+            ?: localizedContext.getString(R.string.notification_selected_place)
         val text = when (transition) {
             GeofenceTransition.ENTER ->
-                context.getString(R.string.notification_nearby, place)
+                localizedContext.getString(R.string.notification_nearby, place)
             GeofenceTransition.EXIT ->
-                context.getString(R.string.notification_left_place, place)
+                localizedContext.getString(R.string.notification_left_place, place)
         }
         val details = when (transition) {
-            GeofenceTransition.ENTER -> context.getString(
+            GeofenceTransition.ENTER -> localizedContext.getString(
                 R.string.notification_nearby_details,
                 task.title,
                 place,
             )
-            GeofenceTransition.EXIT -> context.getString(
+            GeofenceTransition.EXIT -> localizedContext.getString(
                 R.string.notification_left_place_details,
                 task.title,
                 place,
@@ -78,8 +81,8 @@ class TaskNotificationManager @Inject constructor(
         task = task,
         kind = ReminderKind.DUE,
         transition = null,
-        contentText = context.getString(R.string.notification_due),
-        details = context.getString(R.string.notification_due_details, task.title),
+        contentText = localizedContext.getString(R.string.notification_due),
+        details = localizedContext.getString(R.string.notification_due_details, task.title),
     )
 
     @SuppressLint("MissingPermission")
@@ -109,12 +112,12 @@ class TaskNotificationManager @Inject constructor(
             .setContentIntent(contentIntent)
             .addAction(
                 0,
-                context.getString(R.string.notification_snooze_15),
+                localizedContext.getString(R.string.notification_snooze_15),
                 actionIntent(task.id, TaskActionReceiver.ACTION_SNOOZE_15, kind, transition),
             )
             .addAction(
                 0,
-                context.getString(R.string.notification_snooze_60),
+                localizedContext.getString(R.string.notification_snooze_60),
                 actionIntent(task.id, TaskActionReceiver.ACTION_SNOOZE_60, kind, transition),
             )
             .setAutoCancel(true)
@@ -128,7 +131,7 @@ class TaskNotificationManager @Inject constructor(
                 ) {
                     addAction(
                         0,
-                        context.getString(R.string.notification_next_visit),
+                        localizedContext.getString(R.string.notification_next_visit),
                         actionIntent(
                             task.id,
                             TaskActionReceiver.ACTION_NEXT_VISIT,
@@ -139,7 +142,7 @@ class TaskNotificationManager @Inject constructor(
                 } else {
                     addAction(
                         0,
-                        context.getString(R.string.notification_complete_action),
+                        localizedContext.getString(R.string.notification_complete_action),
                         actionIntent(
                             task.id,
                             TaskActionReceiver.ACTION_COMPLETE,
@@ -158,8 +161,8 @@ class TaskNotificationManager @Inject constructor(
 
     private fun publicNotification() = NotificationCompat.Builder(context, CHANNEL_ID)
         .setSmallIcon(R.drawable.ic_notification)
-        .setContentTitle(context.getString(R.string.app_name))
-        .setContentText(context.getString(R.string.notification_hidden_details))
+        .setContentTitle(localizedContext.getString(R.string.app_name))
+        .setContentText(localizedContext.getString(R.string.notification_hidden_details))
         .setPriority(NotificationCompat.PRIORITY_DEFAULT)
         .setCategory(NotificationCompat.CATEGORY_REMINDER)
         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)

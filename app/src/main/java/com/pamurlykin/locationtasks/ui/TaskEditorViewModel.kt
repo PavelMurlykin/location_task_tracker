@@ -117,6 +117,11 @@ class TaskEditorViewModel @Inject constructor(
         SharingStarted.WhileSubscribed(5_000),
         emptyList(),
     )
+    val mapTasks: StateFlow<List<TaskEntity>> = repository.observeAll().stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        emptyList(),
+    )
     private val _events = Channel<EditorEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
 

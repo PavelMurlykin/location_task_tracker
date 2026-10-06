@@ -208,7 +208,9 @@
     <string name="location_picker_title">Task location</string>
     <string name="search_address_hint">Search address</string>
     <string name="address_not_found">Address not found</string>
-    <string name="map_long_press_hint">Touch and hold the map to place a marker</string>
+    <string name="map_center_hint">Move the map to choose the point under the center marker</string>
+    <string name="map_center_marker">Selected location at the center of the map</string>
+    <string name="show_active_tasks">Show active tasks</string>
     <string name="expand_map">Expand</string>
     <string name="collapse_map">Collapse</string>
     <string name="map_api_key_missing">Add MAPKIT_API_KEY to local.properties to enable the map. Coordinates can be entered manually or obtained from the device.</string>
@@ -352,6 +354,7 @@
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
+    <string name="app_language_title">App language</string>
     <string name="analytics_settings_description">Optional local metrics and anonymous diagnostics when providers are configured.</string>
     <string name="analytics_provider_configured">An external diagnostics provider is configured. Data is sent only while consent is enabled.</string>
     <string name="analytics_local_only">External providers are not configured; metrics stay on this device.</string>

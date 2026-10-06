@@ -64,6 +64,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.fragment.app.FragmentActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
+import androidx.compose.ui.platform.LocalConfiguration
 import com.pamurlykin.locationtasks.data.GeofenceLogEntity
 import com.pamurlykin.locationtasks.R
 import com.pamurlykin.locationtasks.data.UserPreferencesRepository
@@ -95,6 +98,7 @@ fun SettingsScreen(
     val productMetrics by viewModel.productMetrics.collectAsStateWithLifecycle()
     val isBackupBusy by viewModel.isBackupBusy.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val currentLanguage = LocalConfiguration.current.locales[0].language
     val lifecycleOwner = LocalLifecycleOwner.current
     var permissions by remember { mutableStateOf(LocationPermissionState.from(context)) }
     var backgroundState by remember { mutableStateOf(BackgroundExecutionState.from(context)) }
@@ -185,6 +189,37 @@ fun SettingsScreen(
                                 selected = productPreferences.themeMode == mode,
                                 onClick = { viewModel.setThemeMode(mode) },
                                 label = { Text(stringResource(mode.labelRes())) },
+                            )
+                        }
+                    }
+                }
+            }
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        stringResource(R.string.app_language_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        listOf(
+                            "ru" to R.string.language_russian,
+                            "en" to R.string.language_english,
+                        ).forEach { (languageTag, labelRes) ->
+                            FilterChip(
+                                selected = languageTag == if (currentLanguage == "en") "en" else "ru",
+                                onClick = {
+                                    AppCompatDelegate.setApplicationLocales(
+                                        LocaleListCompat.forLanguageTags(languageTag),
+                                    )
+                                },
+                                label = { Text(stringResource(labelRes)) },
                             )
                         }
                     }

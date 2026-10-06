@@ -1,9 +1,10 @@
 [versions]
-agp = "9.3.0"
+agp = "9.4.1"
 kotlin = "2.2.10"
 ksp = "2.3.6"
 coreKtx = "1.16.0"
 activityCompose = "1.10.1"
+appcompat = "1.7.1"
 lifecycle = "2.9.0"
 biometric = "1.1.0"
 sentry = "8.51.0"
@@ -25,6 +26,7 @@ espresso = "3.6.1"
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }

@@ -892,6 +892,7 @@ fun TaskEditorScreen(
     }
 
     if (showLocationPicker) {
+        val mapTasks by viewModel.mapTasks.collectAsStateWithLifecycle()
         LocationPickerDialog(
             initialLatitude = state.latitude,
             initialLongitude = state.longitude,
@@ -899,6 +900,7 @@ fun TaskEditorScreen(
             initialRadius = state.radiusMeters,
             savedPlaces = savedPlaces,
             recentPlaces = recentPlaces,
+            tasks = mapTasks,
             onSearch = viewModel::searchLocation,
             onReverse = viewModel::reverseLocation,
             onSavePlace = viewModel::savePlace,

@@ -5,7 +5,9 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.view.WindowManager
 import androidx.activity.compose.setContent
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -16,6 +18,7 @@ import com.pamurlykin.locationtasks.location.GeofenceCoordinator
 import com.pamurlykin.locationtasks.analytics.ProductTelemetry
 import com.pamurlykin.locationtasks.data.ProductPreferences
 import com.pamurlykin.locationtasks.data.UserPreferencesRepository
+import com.pamurlykin.locationtasks.notifications.TaskNotificationManager
 import com.pamurlykin.locationtasks.ui.AppLockLoadingScreen
 import com.pamurlykin.locationtasks.ui.AppLockScreen
 import com.pamurlykin.locationtasks.ui.canUseDeviceAuthentication
@@ -27,20 +30,28 @@ import com.pamurlykin.locationtasks.ui.theme.LocationTasksTheme
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class MainActivity : FragmentActivity() {
+class MainActivity : AppCompatActivity() {
     @Inject lateinit var geofenceCoordinator: GeofenceCoordinator
     @Inject lateinit var preferencesRepository: UserPreferencesRepository
     @Inject lateinit var productTelemetry: ProductTelemetry
+    @Inject lateinit var notificationManager: TaskNotificationManager
     private val requestedTaskId = MutableStateFlow<Long?>(null)
     private val sharedTaskTitle = MutableStateFlow<String?>(null)
     private val appLockEnabled = MutableStateFlow<Boolean?>(null)
-    private val appUnlocked = MutableStateFlow(false)
+    private val session: MainActivitySessionViewModel by viewModels()
+    private val appUnlocked get() = session.appUnlocked
     private val productPreferences = MutableStateFlow<ProductPreferences?>(null)
-    private var stoppedAtElapsedRealtime = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        consumeIntent(intent)
+        notificationManager.createChannel()
+        if (savedInstanceState == null) {
+            consumeIntent(intent)
+        } else {
+            requestedTaskId.value = savedInstanceState.getLong(STATE_PENDING_TASK_ID)
+                .takeIf { it > 0 }
+            sharedTaskTitle.value = savedInstanceState.getString(STATE_SHARED_TASK_TITLE)
+        }
         lifecycleScope.launch {
             preferencesRepository.securityPreferences.collect { preferences ->
                 val previous = appLockEnabled.value
@@ -90,8 +101,8 @@ class MainActivity : FragmentActivity() {
     override fun onStart() {
         super.onStart()
         if (appLockEnabled.value == true &&
-            stoppedAtElapsedRealtime > 0 &&
-            SystemClock.elapsedRealtime() - stoppedAtElapsedRealtime >= LOCK_TIMEOUT_MILLIS
+            session.stoppedAtElapsedRealtime > 0 &&
+            SystemClock.elapsedRealtime() - session.stoppedAtElapsedRealtime >= LOCK_TIMEOUT_MILLIS
         ) {
             appUnlocked.value = false
         }
@@ -103,6 +114,12 @@ class MainActivity : FragmentActivity() {
         consumeIntent(intent)
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putLong(STATE_PENDING_TASK_ID, requestedTaskId.value ?: 0L)
+        outState.putString(STATE_SHARED_TASK_TITLE, sharedTaskTitle.value)
+        super.onSaveInstanceState(outState)
+    }
+
     override fun onResume() {
         super.onResume()
         lifecycleScope.launch {
@@ -111,7 +128,7 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onStop() {
-        stoppedAtElapsedRealtime = SystemClock.elapsedRealtime()
+        session.stoppedAtElapsedRealtime = SystemClock.elapsedRealtime()
         super.onStop()
     }
 
@@ -143,6 +160,14 @@ class MainActivity : FragmentActivity() {
 
     companion object {
         const val EXTRA_TASK_ID = "open_task_id"
+        private const val STATE_PENDING_TASK_ID = "pending_task_id"
+        private const val STATE_SHARED_TASK_TITLE = "shared_task_title"
         private const val LOCK_TIMEOUT_MILLIS = 30_000L
     }
+}
+
+// Retain the authenticated session across language/configuration changes, but not process death.
+internal class MainActivitySessionViewModel : ViewModel() {
+    val appUnlocked = MutableStateFlow(false)
+    var stoppedAtElapsedRealtime = 0L
 }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -44,6 +45,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -52,13 +54,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -70,6 +75,7 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import com.pamurlykin.locationtasks.BuildConfig
 import com.pamurlykin.locationtasks.R
 import com.pamurlykin.locationtasks.data.PlaceEntity
+import com.pamurlykin.locationtasks.data.TaskEntity
 import com.pamurlykin.locationtasks.location.ResolvedLocation
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,6 +87,7 @@ fun LocationPickerDialog(
     initialRadius: Float,
     savedPlaces: List<PlaceEntity>,
     recentPlaces: List<PlaceEntity>,
+    tasks: List<TaskEntity>,
     onSearch: (String, (List<ResolvedLocation>) -> Unit) -> Unit,
     onReverse: (Double, Double, (String?) -> Unit) -> Unit,
     onSavePlace: (String, Double, Double, String, Float) -> Unit,
@@ -104,8 +111,13 @@ fun LocationPickerDialog(
     var showSavePlaceDialog by remember { mutableStateOf(false) }
     var placeName by remember { mutableStateOf("") }
     var isMapExpanded by remember { mutableStateOf(false) }
-    var mapCenterLatitude by remember { mutableStateOf<Double?>(null) }
-    var mapCenterLongitude by remember { mutableStateOf<Double?>(null) }
+    var cameraTarget by remember { mutableStateOf(GeoPoint(latitude, longitude)) }
+    var cameraRequestId by remember { mutableIntStateOf(0) }
+    var selectionRevision by remember { mutableIntStateOf(0) }
+    var showActiveTasks by rememberSaveable { mutableStateOf(false) }
+    val taskClusters = remember(tasks, showActiveTasks) {
+        if (showActiveTasks) clusterMapTasks(tasks) else emptyList()
+    }
     var hasRequestedInitialDeviceLocation by remember { mutableStateOf(false) }
     var selectDeviceLocationAfterPermission by remember { mutableStateOf(false) }
     var hasFinePermission by remember {
@@ -130,8 +142,29 @@ fun LocationPickerDialog(
         }
     }
 
-    fun requestCurrentLocation(selectForTask: Boolean) {
+    fun reverseSelectedLocation() {
+        val requestedRevision = selectionRevision
+        onReverse(latitude, longitude) { resolved ->
+            if (requestedRevision == selectionRevision) address = resolved.orEmpty()
+        }
+    }
+
+    fun applyResolvedLocation(result: ResolvedLocation) {
+        selectionRevision++
+        latitude = result.latitude
+        longitude = result.longitude
+        latitudeText = result.latitude.toString()
+        longitudeText = result.longitude.toString()
+        address = result.address
+        cameraTarget = GeoPoint(result.latitude, result.longitude)
+        cameraRequestId++
+        searchResults = emptyList()
+        errorMessage = null
+    }
+
+    fun requestCurrentLocation() {
         if (!hasFinePermission) return
+        val requestedRevision = selectionRevision
 
         @Suppress("MissingPermission")
         locationClient
@@ -140,29 +173,26 @@ fun LocationPickerDialog(
                 CancellationTokenSource().token,
             )
             .addOnSuccessListener { location ->
+                // A delayed GPS result must not replace a point the user has already chosen.
+                if (requestedRevision != selectionRevision) return@addOnSuccessListener
                 if (location == null) {
                     errorMessage = context.getString(R.string.current_position_unavailable)
                     return@addOnSuccessListener
                 }
 
-                mapCenterLatitude = location.latitude
-                mapCenterLongitude = location.longitude
-                errorMessage = null
-                if (selectForTask) {
-                    latitude = location.latitude
-                    longitude = location.longitude
-                    latitudeText = location.latitude.toString()
-                    longitudeText = location.longitude.toString()
-                    onReverse(location.latitude, location.longitude) {
-                        address = it.orEmpty()
-                    }
+                applyResolvedLocation(ResolvedLocation(location.latitude, location.longitude, ""))
+                reverseSelectedLocation()
+            }
+            .addOnFailureListener {
+                if (requestedRevision == selectionRevision) {
+                    errorMessage = context.getString(R.string.current_position_unavailable)
                 }
             }
     }
 
     fun useCurrentLocation() {
         if (hasFinePermission) {
-            requestCurrentLocation(selectForTask = true)
+            requestCurrentLocation()
         } else {
             selectDeviceLocationAfterPermission = true
             foregroundPermissionLauncher.launch(
@@ -175,22 +205,16 @@ fun LocationPickerDialog(
     }
 
     LaunchedEffect(hasFinePermission) {
-        if (hasFinePermission && !hasRequestedInitialDeviceLocation) {
-            hasRequestedInitialDeviceLocation = true
-            val selectForTask = selectDeviceLocationAfterPermission
+        if (hasFinePermission && selectDeviceLocationAfterPermission) {
             selectDeviceLocationAfterPermission = false
-            requestCurrentLocation(selectForTask = selectForTask)
+            hasRequestedInitialDeviceLocation = true
+            requestCurrentLocation()
+        } else if (hasFinePermission && !hasRequestedInitialDeviceLocation) {
+            hasRequestedInitialDeviceLocation = true
+            if (initialLatitude == null && initialLongitude == null && selectionRevision == 0) {
+                requestCurrentLocation()
+            }
         }
-    }
-
-    fun applyResolvedLocation(result: ResolvedLocation) {
-        latitude = result.latitude
-        longitude = result.longitude
-        latitudeText = result.latitude.toString()
-        longitudeText = result.longitude.toString()
-        address = result.address
-        searchResults = emptyList()
-        errorMessage = null
     }
 
     Dialog(
@@ -317,21 +341,22 @@ fun LocationPickerDialog(
                         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
                             YandexLocationMap(
                                 modifier = Modifier.fillMaxSize(),
-                                latitude = latitude,
-                                longitude = longitude,
+                                cameraTarget = cameraTarget,
+                                cameraRequestId = cameraRequestId,
                                 radius = radius,
+                                clusters = taskClusters,
                                 showUserLocation = hasFinePermission,
-                                centerLatitude = mapCenterLatitude,
-                                centerLongitude = mapCenterLongitude,
                                 primaryColor = MaterialTheme.colorScheme.primary,
-                                onLongClick = { selectedLatitude, selectedLongitude ->
-                                    latitude = selectedLatitude
-                                    longitude = selectedLongitude
-                                    latitudeText = selectedLatitude.toString()
-                                    longitudeText = selectedLongitude.toString()
-                                    onReverse(selectedLatitude, selectedLongitude) { resolved ->
-                                        address = resolved.orEmpty()
+                                onCenterChanged = { selectedLatitude, selectedLongitude, finished ->
+                                    if (latitude != selectedLatitude || longitude != selectedLongitude) {
+                                        selectionRevision++
+                                        latitude = selectedLatitude
+                                        longitude = selectedLongitude
+                                        latitudeText = selectedLatitude.toString()
+                                        longitudeText = selectedLongitude.toString()
+                                        address = ""
                                     }
+                                    if (finished && address.isBlank()) reverseSelectedLocation()
                                 },
                             )
                             AssistChip(
@@ -374,9 +399,23 @@ fun LocationPickerDialog(
                                     .padding(8.dp),
                             )
                         }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().toggleable(
+                                value = showActiveTasks,
+                                role = Role.Switch,
+                                onValueChange = { showActiveTasks = it },
+                            ),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                stringResource(R.string.show_active_tasks),
+                                modifier = Modifier.weight(1f),
+                            )
+                            Switch(checked = showActiveTasks, onCheckedChange = null)
+                        }
                         if (!isMapExpanded) {
                             Text(
-                                stringResource(R.string.map_long_press_hint),
+                                stringResource(R.string.map_center_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -417,7 +456,15 @@ fun LocationPickerDialog(
                                     latitudeText = value
                                     value.replace(',', '.').toDoubleOrNull()
                                         ?.takeIf { it in -90.0..90.0 }
-                                        ?.let { latitude = it }
+                                        ?.let {
+                                            if (latitude != it) {
+                                                selectionRevision++
+                                                latitude = it
+                                                address = ""
+                                                cameraTarget = GeoPoint(latitude, longitude)
+                                                cameraRequestId++
+                                            }
+                                        }
                                 },
                                 modifier = Modifier.weight(1f),
                                 label = { Text(stringResource(R.string.latitude_label)) },
@@ -432,7 +479,15 @@ fun LocationPickerDialog(
                                     longitudeText = value
                                     value.replace(',', '.').toDoubleOrNull()
                                         ?.takeIf { it in -180.0..180.0 }
-                                        ?.let { longitude = it }
+                                        ?.let {
+                                            if (longitude != it) {
+                                                selectionRevision++
+                                                longitude = it
+                                                address = ""
+                                                cameraTarget = GeoPoint(latitude, longitude)
+                                                cameraRequestId++
+                                            }
+                                        }
                                 },
                                 modifier = Modifier.weight(1f),
                                 label = { Text(stringResource(R.string.longitude_label)) },
@@ -444,7 +499,10 @@ fun LocationPickerDialog(
                         }
                         OutlinedTextField(
                             value = address,
-                            onValueChange = { address = it },
+                            onValueChange = {
+                                selectionRevision++
+                                address = it
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text(stringResource(R.string.place_name_or_address)) },
                             singleLine = true,

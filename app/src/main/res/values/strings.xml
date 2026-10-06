@@ -208,7 +208,9 @@
     <string name="location_picker_title">Место задачи</string>
     <string name="search_address_hint">Найти адрес</string>
     <string name="address_not_found">Адрес не найден</string>
-    <string name="map_long_press_hint">Нажмите и удерживайте карту, чтобы поставить метку</string>
+    <string name="map_center_hint">Перемещайте карту, чтобы выбрать точку под меткой в центре</string>
+    <string name="map_center_marker">Выбранное место в центре карты</string>
+    <string name="show_active_tasks">Отобразить активные задачи</string>
     <string name="expand_map">Развернуть</string>
     <string name="collapse_map">Свернуть</string>
     <string name="map_api_key_missing">Для карты добавьте MAPKIT_API_KEY в local.properties. Координаты можно указать вручную или получить с устройства.</string>
@@ -352,6 +354,9 @@
     <string name="theme_system">Системная</string>
     <string name="theme_light">Светлая</string>
     <string name="theme_dark">Тёмная</string>
+    <string name="app_language_title">Язык приложения</string>
+    <string name="language_russian" translatable="false">Русский</string>
+    <string name="language_english" translatable="false">English</string>
     <string name="analytics_settings_description">Необязательная локальная статистика и отправка обезличенной диагностики при настроенных сервисах.</string>
     <string name="analytics_provider_configured">Настроен внешний сервис диагностики. Данные отправляются только при включённом согласии.</string>
     <string name="analytics_local_only">Внешние сервисы не настроены: показатели считаются только на этом устройстве.</string>

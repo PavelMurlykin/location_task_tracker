@@ -34,6 +34,23 @@ class TaskMapModelsTest {
     }
 
     @Test
+    fun `location picker clusters include active located tasks without geofence reminders`() {
+        val clusters = clusterMapTasks(
+            listOf(
+                task(1, 55.7500, 37.6100).copy(geofenceEnabled = false),
+                task(2, 55.7504, 37.6100).copy(geofenceEnabled = true),
+                task(3, 55.7500, 37.6100).copy(isCompleted = true),
+                task(4, 55.7500, 37.6100).copy(isArchived = true),
+                TaskEntity(id = 5, title = "Without location"),
+            ),
+        )
+
+        assertEquals(1, clusters.size)
+        assertEquals(listOf(1L, 2L), clusters.single().tasks.map(TaskEntity::id))
+        assertEquals(2, clusters.single().count)
+    }
+
+    @Test
     fun `nearby screen sorts tasks by distance`() {
         val origin = GeoPoint(55.75, 37.61)
         val sorted = sortNearbyTasks(

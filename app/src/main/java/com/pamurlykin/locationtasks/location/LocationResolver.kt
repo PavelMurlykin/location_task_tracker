@@ -2,10 +2,10 @@ package com.pamurlykin.locationtasks.location
 
 import android.content.Context
 import android.location.Geocoder
+import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -17,9 +17,13 @@ data class ResolvedLocation(
 
 @Singleton
 class LocationResolver @Inject constructor(
-    @ApplicationContext context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
-    private val geocoder = Geocoder(context, Locale.getDefault())
+    private val geocoder: Geocoder
+        get() {
+            val localizedContext = ContextCompat.getContextForLanguage(context)
+            return Geocoder(localizedContext, localizedContext.resources.configuration.locales[0])
+        }
 
     suspend fun search(query: String): List<ResolvedLocation> = withContext(Dispatchers.IO) {
         if (query.isBlank() || !Geocoder.isPresent()) return@withContext emptyList()
