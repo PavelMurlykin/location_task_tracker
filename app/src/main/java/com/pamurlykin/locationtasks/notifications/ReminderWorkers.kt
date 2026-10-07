@@ -14,7 +14,6 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import com.pamurlykin.locationtasks.data.GeofenceTransition
-import com.pamurlykin.locationtasks.analytics.ProductTelemetry
 import com.pamurlykin.locationtasks.data.TaskDao
 import com.pamurlykin.locationtasks.data.TaskEntity
 import com.pamurlykin.locationtasks.data.UserPreferencesRepository
@@ -64,7 +63,6 @@ class DueReminderWorker(
         }
 
         val delivered = dependencies.notificationManager().showDueTask(task)
-        dependencies.productTelemetry().trackDueReminder(delivered)
         if (delivered) {
             dependencies.taskDao().setLastNotifiedAt(taskId, now, ReminderKind.DUE.name)
             if (task.snoozedUntil != null) {
@@ -142,5 +140,4 @@ interface ReminderWorkerEntryPoint {
     fun scheduler(): ReminderWorkScheduler
     fun locationDispatcher(): LocationReminderDispatcher
     fun locationClient(): FusedLocationProviderClient
-    fun productTelemetry(): ProductTelemetry
 }

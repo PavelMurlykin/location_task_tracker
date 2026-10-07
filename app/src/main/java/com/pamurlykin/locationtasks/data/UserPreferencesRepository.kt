@@ -39,7 +39,6 @@ enum class AppThemeMode {
 data class ProductPreferences(
     val onboardingCompleted: Boolean = false,
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
-    val analyticsConsent: Boolean = false,
 )
 
 @Singleton
@@ -68,7 +67,6 @@ class UserPreferencesRepository @Inject constructor(
         ProductPreferences(
             onboardingCompleted = preferences[ONBOARDING_COMPLETED] ?: false,
             themeMode = AppThemeMode.fromStorage(preferences[THEME_MODE]),
-            analyticsConsent = preferences[ANALYTICS_CONSENT] ?: false,
         )
     }
 
@@ -106,19 +104,14 @@ class UserPreferencesRepository @Inject constructor(
         context.dataStore.edit { it[APP_LOCK_ENABLED] = enabled }
     }
 
-    suspend fun completeOnboarding(analyticsConsent: Boolean) {
+    suspend fun completeOnboarding() {
         context.dataStore.edit {
-            it[ANALYTICS_CONSENT] = analyticsConsent
             it[ONBOARDING_COMPLETED] = true
         }
     }
 
     suspend fun setThemeMode(mode: AppThemeMode) {
         context.dataStore.edit { it[THEME_MODE] = mode.name }
-    }
-
-    suspend fun setAnalyticsConsent(consent: Boolean) {
-        context.dataStore.edit { it[ANALYTICS_CONSENT] = consent }
     }
 
     companion object {
@@ -134,6 +127,5 @@ class UserPreferencesRepository @Inject constructor(
         private val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
         private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         private val THEME_MODE = stringPreferencesKey("theme_mode")
-        private val ANALYTICS_CONSENT = booleanPreferencesKey("analytics_consent")
     }
 }

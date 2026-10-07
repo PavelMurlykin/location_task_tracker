@@ -2,7 +2,6 @@ package com.pamurlykin.locationtasks.location
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import com.pamurlykin.locationtasks.analytics.ProductTelemetry
 import com.pamurlykin.locationtasks.data.GeofenceLogDao
 import com.pamurlykin.locationtasks.data.GeofenceLogEntity
 import com.pamurlykin.locationtasks.data.GeofenceStatus
@@ -18,7 +17,6 @@ class ReliableGeofenceCoordinator @Inject constructor(
     private val permissionSource: GeofencePermissionSource,
     private val retryScheduler: GeofenceRetryScheduler,
     private val logDao: GeofenceLogDao,
-    private val productTelemetry: ProductTelemetry,
 ) : GeofenceCoordinator {
     private val reconciliationMutex = Mutex()
 
@@ -110,7 +108,6 @@ class ReliableGeofenceCoordinator @Inject constructor(
             )
             when (val result = geofencePlatform.register(task)) {
                 GeofenceRegistrationResult.Registered -> {
-                    productTelemetry.trackGeofenceRegistration(ProductTelemetry.OUTCOME_SUCCESS)
                     val registeredAt = System.currentTimeMillis()
                     taskDao.setGeofenceStatus(
                         id = task.id,
@@ -134,7 +131,6 @@ class ReliableGeofenceCoordinator @Inject constructor(
                 }
 
                 GeofenceRegistrationResult.MissingPermission -> {
-                    productTelemetry.trackGeofenceRegistration(OUTCOME_MISSING_PERMISSION)
                     val latestPermissions = permissionSource.current()
                     updateStatus(
                         task = task,
@@ -147,7 +143,6 @@ class ReliableGeofenceCoordinator @Inject constructor(
                 }
 
                 GeofenceRegistrationResult.InvalidTask -> {
-                    productTelemetry.trackGeofenceRegistration(OUTCOME_INVALID_TASK)
                     updateStatus(
                         task = task,
                         status = GeofenceStatus.ERROR,
@@ -159,8 +154,6 @@ class ReliableGeofenceCoordinator @Inject constructor(
                 }
 
                 is GeofenceRegistrationResult.Failed -> {
-                    productTelemetry.trackGeofenceRegistration(OUTCOME_ERROR)
-                    productTelemetry.captureException(result.cause, "geofence_registration")
                     retryableFailures += 1
                     updateStatus(
                         task = task,
@@ -236,8 +229,5 @@ class ReliableGeofenceCoordinator @Inject constructor(
         private const val DETAIL_MISSING_PRECISE_LOCATION = "MISSING_PRECISE_LOCATION"
         private const val DETAIL_MISSING_BACKGROUND_LOCATION = "MISSING_BACKGROUND_LOCATION"
         private const val DETAIL_MISSING_PERMISSION = "MISSING_PERMISSION"
-        private const val OUTCOME_MISSING_PERMISSION = "missing_permission"
-        private const val OUTCOME_INVALID_TASK = "invalid_task"
-        private const val OUTCOME_ERROR = "error"
     }
 }

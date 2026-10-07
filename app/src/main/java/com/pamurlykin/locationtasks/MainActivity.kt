@@ -15,7 +15,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import com.pamurlykin.locationtasks.location.GeofenceCoordinator
-import com.pamurlykin.locationtasks.analytics.ProductTelemetry
 import com.pamurlykin.locationtasks.data.ProductPreferences
 import com.pamurlykin.locationtasks.data.UserPreferencesRepository
 import com.pamurlykin.locationtasks.notifications.TaskNotificationManager
@@ -33,7 +32,6 @@ import javax.inject.Inject
 class MainActivity : AppCompatActivity() {
     @Inject lateinit var geofenceCoordinator: GeofenceCoordinator
     @Inject lateinit var preferencesRepository: UserPreferencesRepository
-    @Inject lateinit var productTelemetry: ProductTelemetry
     @Inject lateinit var notificationManager: TaskNotificationManager
     private val requestedTaskId = MutableStateFlow<Long?>(null)
     private val sharedTaskTitle = MutableStateFlow<String?>(null)
@@ -80,10 +78,9 @@ class MainActivity : AppCompatActivity() {
                     lockEnabled == null || productPrefs == null -> AppLockLoadingScreen()
                     lockEnabled == true && !unlocked -> AppLockScreen(::requestDeviceUnlock)
                     productPrefs?.onboardingCompleted == false -> OnboardingScreen(
-                        onComplete = { analyticsConsent ->
+                        onComplete = {
                             lifecycleScope.launch {
-                                preferencesRepository.completeOnboarding(analyticsConsent)
-                                productTelemetry.trackOnboardingCompleted()
+                                preferencesRepository.completeOnboarding()
                             }
                         },
                     )

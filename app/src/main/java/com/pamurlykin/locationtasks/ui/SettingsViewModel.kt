@@ -14,8 +14,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.receiveAsFlow
 import com.pamurlykin.locationtasks.R
-import com.pamurlykin.locationtasks.analytics.ProductMetrics
-import com.pamurlykin.locationtasks.analytics.ProductMetricsRepository
 import com.pamurlykin.locationtasks.data.GeofenceLogDao
 import com.pamurlykin.locationtasks.data.GeofenceLogEntity
 import com.pamurlykin.locationtasks.data.ReminderPreferences
@@ -35,7 +33,6 @@ class SettingsViewModel @Inject constructor(
     logDao: GeofenceLogDao,
     private val geofenceCoordinator: GeofenceCoordinator,
     private val backupRepository: DataBackupRepository,
-    metricsRepository: ProductMetricsRepository,
 ) : ViewModel() {
     val reminderPreferences: StateFlow<ReminderPreferences> =
         repository.reminderPreferences.stateIn(
@@ -60,11 +57,6 @@ class SettingsViewModel @Inject constructor(
             SharingStarted.WhileSubscribed(5_000),
             ProductPreferences(),
         )
-    val productMetrics: StateFlow<ProductMetrics> = metricsRepository.metrics.stateIn(
-        viewModelScope,
-        SharingStarted.WhileSubscribed(5_000),
-        ProductMetrics(),
-    )
     private val _isCheckingGeofences = MutableStateFlow(false)
     val isCheckingGeofences: StateFlow<Boolean> = _isCheckingGeofences.asStateFlow()
     private val _isBackupBusy = MutableStateFlow(false)
@@ -90,10 +82,6 @@ class SettingsViewModel @Inject constructor(
 
     fun setThemeMode(mode: AppThemeMode) {
         viewModelScope.launch { repository.setThemeMode(mode) }
-    }
-
-    fun setAnalyticsConsent(consent: Boolean) {
-        viewModelScope.launch { repository.setAnalyticsConsent(consent) }
     }
 
     fun exportBackup(uri: Uri, password: String) {

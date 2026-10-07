@@ -8,7 +8,8 @@ reminders and grant precise location, background location, and notification
 permissions in sequence. Android 13 and later require a separate notification
 permission. Ordinary tasks remain available if you decline; location reminders
 require these permissions and the Google Play Services geofencing service.
-You can change consent to optional diagnostics in Settings.
+On the permissions screen, you can tap Continue without permissions immediately.
+After completing the requests, tap Start using the app to open the task list.
 
 To build from source, use Android Studio, Android SDK 36, and JDK 17 or later.
 Set the SDK path using `sdk.dir` in `local.properties`. For the embedded map,
@@ -95,8 +96,8 @@ entered task titles and saved addresses are not translated automatically.
 
 The default general notification cooldown is 4 hours; 1, 4, 12, and 24 hours
 are available. Quiet hours start disabled, with an initial interval of 22:00–08:00.
-Settings also lets you check geofences, change diagnostics consent,
-view local metrics, and read the privacy policy.
+Settings also lets you check geofences, permission status and power-saving
+restrictions, view the location reminder event log, and read the privacy policy.
 
 To lock the app, enable the switch and confirm with the system PIN, password,
 or biometrics. A device screen lock must be configured. With app lock enabled,
@@ -105,7 +106,7 @@ After being away from the app for 30 seconds, you must unlock it again.
 
 Export data to a local `.ltbackup` file with a password of at least 8 characters.
 The backup includes tasks, categories, places, and reminder settings; theme, language,
-app lock, and diagnostics consent are excluded. Importing with the correct
+and app lock are excluded. Importing with the correct
 password replaces current data after file validation. The password is not stored;
 recovery without it is impossible. There are no accounts or cloud synchronization,
 and automatic Android cloud backup is disabled.

@@ -21,10 +21,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.LocationTasks">
 
-        <meta-data
-            android:name="io.sentry.auto-init"
-            android:value="false" />
-
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
             android:enabled="false"

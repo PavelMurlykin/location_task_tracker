@@ -9,7 +9,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import com.pamurlykin.locationtasks.analytics.ProductTelemetry
 import com.pamurlykin.locationtasks.data.GeofenceTransition
 import com.pamurlykin.locationtasks.data.TaskDao
 import com.pamurlykin.locationtasks.data.TaskRepository
@@ -20,7 +19,6 @@ class TaskActionReceiver : BroadcastReceiver() {
     @Inject lateinit var repository: TaskRepository
     @Inject lateinit var taskDao: TaskDao
     @Inject lateinit var reminderScheduler: ReminderWorkScheduler
-    @Inject lateinit var productTelemetry: ProductTelemetry
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action !in SUPPORTED_ACTIONS) return
@@ -62,25 +60,10 @@ class TaskActionReceiver : BroadcastReceiver() {
                 }
                 NotificationManagerCompat.from(context)
                     .cancel(TaskNotificationManager.notificationId(taskId))
-                productTelemetry.trackNotificationAction(
-                    action = intent.action.toMetricAction(),
-                    reminderKind = kind.name.lowercase(),
-                )
-            } catch (throwable: Throwable) {
-                productTelemetry.captureException(throwable, "notification_action")
-                throw throwable
             } finally {
                 pendingResult.finish()
             }
         }
-    }
-
-    private fun String?.toMetricAction(): String = when (this) {
-        ACTION_COMPLETE -> ProductTelemetry.ACTION_COMPLETE
-        ACTION_SNOOZE_15 -> "snooze_15"
-        ACTION_SNOOZE_60 -> "snooze_60"
-        ACTION_NEXT_VISIT -> "next_visit"
-        else -> "unknown"
     }
 
     private suspend fun snooze(

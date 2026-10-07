@@ -1,7 +1,6 @@
 package com.pamurlykin.locationtasks.notifications
 
 import kotlinx.coroutines.flow.first
-import com.pamurlykin.locationtasks.analytics.ProductTelemetry
 import com.pamurlykin.locationtasks.data.GeofenceLogDao
 import com.pamurlykin.locationtasks.data.GeofenceLogEntity
 import com.pamurlykin.locationtasks.data.GeofenceTransition
@@ -19,17 +18,13 @@ class LocationReminderDispatcher @Inject constructor(
     private val preferencesRepository: UserPreferencesRepository,
     private val notificationManager: TaskNotificationManager,
     private val reminderScheduler: ReminderWorkScheduler,
-    private val productTelemetry: ProductTelemetry,
 ) {
     suspend fun dispatch(
         taskId: Long,
         transition: GeofenceTransition,
         now: Long = System.currentTimeMillis(),
     ) {
-        var task = taskDao.getById(taskId) ?: run {
-            productTelemetry.trackGeofenceTrigger(OUTCOME_TASK_MISSING)
-            return
-        }
+        var task = taskDao.getById(taskId) ?: return
         if (!task.shouldMonitor) {
             recordOutcome(task, GeofenceLogEntity.OUTCOME_TASK_INACTIVE, transition, now)
             return
@@ -111,7 +106,6 @@ class LocationReminderDispatcher @Inject constructor(
         occurredAt: Long,
     ) {
         logDao.record(task.triggerLog(outcome, transition, occurredAt))
-        productTelemetry.trackGeofenceTrigger(outcome.lowercase())
     }
 
     private fun TaskEntity.triggerLog(
@@ -128,7 +122,6 @@ class LocationReminderDispatcher @Inject constructor(
     )
 
     companion object {
-        private const val OUTCOME_TASK_MISSING = "task_missing"
         private const val OUTCOME_TRANSITION_FILTERED = "TRANSITION_FILTERED"
     }
 }

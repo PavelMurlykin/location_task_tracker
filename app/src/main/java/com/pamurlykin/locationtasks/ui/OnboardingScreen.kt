@@ -21,13 +21,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,11 +45,10 @@ import com.pamurlykin.locationtasks.R
 import com.pamurlykin.locationtasks.location.LocationPermissionState
 
 @Composable
-fun OnboardingScreen(onComplete: (analyticsConsent: Boolean) -> Unit) {
+fun OnboardingScreen(onComplete: () -> Unit) {
     val context = LocalContext.current
     var page by rememberSaveable { mutableIntStateOf(0) }
     var permissionStep by rememberSaveable { mutableIntStateOf(0) }
-    var analyticsConsent by rememberSaveable { mutableStateOf(false) }
     var permissions by remember { mutableStateOf(LocationPermissionState.from(context)) }
 
     fun refreshPermissions() {
@@ -98,19 +95,15 @@ fun OnboardingScreen(onComplete: (analyticsConsent: Boolean) -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 Text(
-                    stringResource(R.string.onboarding_progress, page + 1, 3),
+                    stringResource(R.string.onboarding_progress, page + 1, 2),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 when (page) {
                     0 -> OnboardingExplanation()
-                    1 -> OnboardingPermissions(
+                    else -> OnboardingPermissions(
                         permissions = permissions,
                         permissionStep = permissionStep,
-                    )
-                    else -> OnboardingPrivacy(
-                        consent = analyticsConsent,
-                        onConsentChange = { analyticsConsent = it },
                     )
                 }
             }
@@ -152,9 +145,9 @@ fun OnboardingScreen(onComplete: (analyticsConsent: Boolean) -> Unit) {
                             } else {
                                 notificationsLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                             }
-                            else -> page = 2
+                            else -> onComplete()
                         }
-                        else -> onComplete(analyticsConsent)
+                        else -> onComplete()
                     }
                 },
                 modifier = Modifier
@@ -171,7 +164,6 @@ fun OnboardingScreen(onComplete: (analyticsConsent: Boolean) -> Unit) {
                                 R.string.onboarding_allow_background
                             page == 1 && permissionStep == 2 ->
                                 R.string.onboarding_allow_notifications
-                            page == 1 -> R.string.common_next
                             else -> R.string.onboarding_start
                         },
                     ),
@@ -179,7 +171,7 @@ fun OnboardingScreen(onComplete: (analyticsConsent: Boolean) -> Unit) {
             }
             if (page == 1 && permissionStep < 3) {
                 TextButton(
-                    onClick = { page = 2 },
+                    onClick = onComplete,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(stringResource(R.string.onboarding_continue_without_permissions))
@@ -295,53 +287,5 @@ private fun PermissionStatusRow(label: String, granted: Boolean, active: Boolean
                 },
             )
         }
-    }
-}
-
-@Composable
-private fun OnboardingPrivacy(consent: Boolean, onConsentChange: (Boolean) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Icon(
-            Icons.Default.PrivacyTip,
-            contentDescription = null,
-            modifier = Modifier.size(56.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            stringResource(R.string.onboarding_privacy_title),
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        Text(
-            stringResource(R.string.onboarding_privacy_text),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics(mergeDescendants = true) { }
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        stringResource(R.string.analytics_consent_title),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        stringResource(R.string.analytics_consent_description),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(checked = consent, onCheckedChange = onConsentChange)
-            }
-        }
-        Text(
-            stringResource(R.string.analytics_no_personal_data),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
